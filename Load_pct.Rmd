@@ -1,0 +1,1155 @@
+---
+title: "Load data"
+author: "Anthony Staines"
+date: "07/04/2020"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+# Bar charts in percentages
+
+```{r setup, include=FALSE}
+library(knitr)
+library(readxl)
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE,
+                      fig.width=7.5, fig.height=6, dpi=600)
+```
+
+# Load the data
+
+```{r load, echo=FALSE}
+
+VV.names <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', n_max=1) # Final Survey 1
+
+VV <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', guess_max = 10000, skip=3, col_names=names(VV.names)) %>%
+  mutate(ID=seq_along(StartDate))
+
+
+NN.names <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', n_max=1)
+NN <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', guess_max = 10000, skip=3, col_names=names(NN.names)) %>%
+  mutate(ID=seq_along(StartDate))
+
+JJ <- VV %>%
+  inner_join(NN,by=c('ID'))
+
+```
+
+## Identify code-value pairs
+Doesn't work.
+
+```{r See if numbers match text values}
+##Q5
+Q5 <- JJ %>%
+  select(Q5.x,Q5.y) %>%
+  arrange(Q5.x,Q5.y) %>%
+  distinct()
+# Mysterious bug!
+
+```
+
+# Just the values please
+
+# Some basic plots
+
+## Gender
+
+```{r Gender}
+g <- ggplot(data=VV, aes(x=Q4,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Gender identity') + ylab("Percentage") +
+  ggtitle('Self reported gender identity') +
+  theme_classic(base_size = 25)  +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ 
+ggsave('images_pct/Gender.png',  g, width=10,height=7, units='in', dpi= 1200)
+```
+
+## Age
+
+```{r age}
+g <- ggplot(data=VV, aes(x=Q3,y = (..count..)/sum(..count..))) +
+  geom_histogram(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Age') + ylab('Percentage') +
+  ggtitle('Age in years') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-90, hjust=0))
+g
+ggsave('images_pct/Age.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Location
+
+```{r}
+table(VV$Q5)
+
+VV <- VV %>% 
+  mutate(Q5c = str_replace(Q5, ".*Dubl.*", "Dublin")) %>%
+  mutate(Q5c = str_replace(Q5c, ".*East Cork.*", "Cork county")) %>%
+  mutate(Q5c = str_replace(Q5c, ".*West Cork.*", "Cork county")) 
+  
+  
+table(VV$Q5c)
+
+g <- ggplot(data=VV, aes(x=Q5c,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Location') + ylab('Percentage') +
+  ggtitle('Approximate location of respondent') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-90, hjust=0))
+g
+ggsave('images_pct/Location.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Broadband access
+
+```{r Broadband}
+table(VV$Q6)
+VV$Q6a <- recode(VV$Q6,
+                 'Dial-up telephone line (analogue, ISDN)' = 'Dial-up',
+                 "Don’t know" = "Not known") # Lose the ’
+table(VV$Q6a)
+
+
+g <- ggplot(data=VV , aes(x=Q6a,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Broadband access') + ylab('Percentage') +
+  ggtitle('Means of access to broadband internet') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-90, hjust=0))
+g
+ggsave('images_pct/Broadband.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Education
+
+```{r Education}
+table(VV$Q7)
+VV$Q7a <- recode(VV$Q7,
+                 'No formal education/training' = 'No formal')
+VV$Q7a <- as_factor(VV$Q7a)
+VV$Q7a <- fct_relevel(VV$Q7a, "No formal", "Primary education", "Secondary education", "Nat. Cert or Diploma", "Technical or Vocational", "University degree", "Postgraduate")
+table(VV$Q7a)
+VV$Q7b <- fct_relevel(VV$Q7a, "Secondary education", "No formal", "Primary education", "Nat. Cert or Diploma", "Technical or Vocational", "University degree", "Postgraduate")
+
+
+g <- ggplot(data=VV , aes(x=Q7a,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Education level') + ylab('Percentage') +
+  ggtitle('Highest level of education obtained') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Education.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+Note that our respondents are very well educated
+
+## Covid pandemic unemployment
+
+```{r CovidUnemployment}
+table(VV$Q8)
+
+g <- ggplot(data=VV , aes(x=Q8,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Covid Unemployment payment') + ylab('Percentage') +
+  ggtitle('Receipt of Covid19 Unemployment support') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/CovidEnemploymentBenefit.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Living arrangements
+
+```{r Living arrangements}
+table(VV$Q9)
+VV$Q9a <- recode(VV$Q9,
+                 'I live alone' = 'Alone',
+                 'I live with other people' = 'With others')
+table(VV$Q9a)
+
+g <- ggplot(data=VV , aes(x=Q9a,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Living arrangements') + ylab('Percentage') +
+  ggtitle('Do you live alone or with others?') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Live_alone.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Household composition
+
+```{r Household composition}
+# 4 groups Adults > 70, Adults 18-70, Children 12-17, Children < 12 or All missing
+
+# If all missing - exclude
+# There are several mad values, exceeding the Irish population, but a small number that are possible but over 200. For the moment exclude these.
+
+HHComp <- VV %>%
+  select(Q10_1_1,Q10_2_1,Q10_3_1,Q10_4_1) %>%
+  filter_all(all_vars(!is.na(.))) %>% # 10583 all 4 missing, 75721 not all missing
+  filter(Q10_1_1 < 200) %>%
+  filter(Q10_2_1 < 200) %>%
+  filter(Q10_3_1 < 200) %>%
+  filter(Q10_4_1 < 200) %>%
+  rename('Age_71up' = 'Q10_1_1',
+         'Age_18_70' = 'Q10_2_1',
+         'Age_12_17' = 'Q10_3_1',
+         'Age_0_11' = 'Q10_4_1'
+         ) %>%
+  select(Age_0_11, Age_12_17, Age_18_70, Age_71up)
+
+Compositions <- HHComp %>%
+  group_by_all() %>%
+  summarize(count=n())
+
+HHComp %>%
+  mutate(Total = Age_71up + Age_18_70 + Age_12_17 + Age_0_11)
+  
+require(devtools)
+# Install treemapify if not already
+if(!require(treemapify)){install_github("wilkox/treemapify")}
+
+
+```
+
+Attempts to plot Household composition - not too successful!
+
+```{r mosaic plot}
+C2 <- Compositions %>%
+  ungroup() %>%
+  mutate_all(.funs = ~round(.,0)) %>%
+  mutate(Age_Child = Age_0_11 + Age_12_17) %>%
+  mutate(Age_71upc = cut(Age_71up,
+                    breaks=c(0,1,2,3,100),
+                    labels = c('0','1','2','3+'),
+                    include.lowest = TRUE,
+                    right=FALSE)) %>%
+  mutate(Age_18upc = cut(Age_18_70,
+                         breaks=c(0,1,2,3,100),
+                         labels = c('0','1','2','3+'),
+#                    breaks=c(0,1,2,3,10,20,40,60,100),
+#                    labels = c('0','1','2','3+','10+','20+','40+','60+'),
+                    include.lowest = TRUE,
+                    right=FALSE)) %>%
+  mutate(Age_12upc = cut(Age_12_17,
+                         breaks=c(0,1,2,3,100),
+                         labels = c('0','1','2','3+'),
+                    include.lowest = TRUE,
+                    right=FALSE)) %>%
+  mutate(Age_0upc = cut(Age_0_11,
+                         breaks=c(0,1,2,3,100),
+                         labels = c('0','1','2','3+'),
+                    include.lowest = TRUE,
+                    right=FALSE)) %>%
+  mutate(Age_Childupc = cut(Age_Child,
+                         breaks=c(0,1,2,3,100),
+                         labels = c('0','1','2','3+'),
+                    include.lowest = TRUE,
+                    right=FALSE))
+  
+table(C2$Age_71upc,C2$Age_71up)
+table(C2$Age_71upc)
+table(C2$Age_18upc)
+table(C2$Age_12upc)
+table(C2$Age_0upc)
+table(C2$Age_Childupc)
+
+
+table(C2$count)
+
+C3 <- C2 %>%
+  filter(count >100)
+
+g <- ggplot(C3,
+       aes(area=count, fill=Age_Childupc, subgroup=Age_18upc, subgroup2=Age_71upc)) +
+  geom_treemap() +
+  geom_treemap_subgroup_text(place = "left", grow = FALSE, alpha = 1) + geom_treemap_subgroup_border() +
+  geom_treemap_subgroup2_text(place = "center", grow = FALSE, alpha = 1) + geom_treemap_subgroup2_border() 
+g
+ggsave('images_pct/HouseholdComp1.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+
+library(ggmosaic)
+g <- ggplot(data = C3) +
+  geom_mosaic(aes(weight=count, x = product(Age_71upc, Age_18upc), fill=Age_Childupc), show.legend=TRUE)
+g
+ggsave('images_pct/HouseholdComp2.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+## Number of people met face-to-face outside your household.
+
+```{r face to face}
+table(VV$Q11)
+VV$Q11a <- recode(VV$Q11,
+                 'None' = '0',
+                 '20' = '20',
+                'More than 20' = 'Over 20') %>%
+  as.factor() %>%
+  fct_relevel('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','Over 20')
+table(VV$Q11a)
+
+g <- ggplot(data=VV , aes(x=Q11a,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Number of people') + ylab('Percentage') +
+  ggtitle('People outside your household met face-to-face') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/People_Face_to_Face.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+Most people meet no-one, or only a few people outside their household.
+
+## Occupation
+
+```{r Occupation}
+table(VV$Q13)
+
+VV <- VV %>%
+  mutate(Q13a = recode(Q13,
+                       'Looking after home/family' = 'Home',
+                       'Working for payment or profit' = 'Employed',
+                       'Student or pupil' = 'Student',
+                       'Unable to work due to permanent sickness or disability' = 'Disability',
+                       'Unemployed' = 'Unemployed',
+                       'Retired from employment' = 'Retired',
+                       'Other' = 'Other',
+                       'Looking for first regular job' = 'Other'))
+
+VV$Q13a <- as_factor(VV$Q13a) %>%
+  fct_relevel(c('Employed', 'Retired', 'Home', 'Student', 'Disability', 'Unemployed', 'Other'))
+
+table(VV$Q13a)
+
+g <- ggplot(data=VV , aes(x=Q13a,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Type of occupation') + ylab('Percentage') +
+  ggtitle('Reported occupation') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Occupation.png',  g, width=10,height=7, units='in', dpi= 1200)
+########
+g <- ggplot(data=VV , aes(x=Q13a,fill=Q4,y = (..count..)/sum(..count..))) +
+  geom_bar(colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Type of occupation') + ylab('Percentage') +
+  ggtitle('Reported occupation by gender') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Occupation_by_gender.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+Note that the majority of respondents are women.
+
+## Government recommendations
+
+```{r Adaptation}
+kable(table(VV$Q45_1),caption='Social distancing') # Social distancing
+kable(table(VV$Q45_2),caption='Isolation') # Isolation
+kable(table(VV$Q45_3),caption='Leisure') # Leisure
+kable(table(VV$Q45_4),caption='Shopping') # Shopping
+
+m1 <-  lm(Q45_1 ~ I(Q3/10)+Q4+Q7b+Q9+Q13a,data=VV)
+anova(m1)
+summary(m1)
+m2 <-  lm(Q45_2 ~ I(Q3/10)+Q4+Q7b+Q9+Q13a,data=VV)
+anova(m2)
+summary(m2)
+m3 <-  lm(Q45_3 ~ I(Q3/10)+Q4+Q7b+Q9+Q13a,data=VV)
+anova(m3)
+summary(m3)
+m4 <-  lm(Q45_4 ~ I(Q3/10)+Q4+Q7b+Q9+Q13a,data=VV)
+anova(m4)
+summary(m4)
+
+Heatmap <- VV %>%
+  select(Q45_1, Q45_2) %>%
+  group_by(Q45_1,Q45_2) %>%
+  summarise(Count = n())
+
+ggplot(Heatmap,aes(x=Q45_1,y=Q45_2,fill=log(Count))) +
+  geom_tile() +
+  xlab('Social distancing') + ylab('Isolation') +
+  ggtitle('Clarity of Government advice') +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  scale_y_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme(legend.position="none")
+
+Heatmap <- VV %>%
+  select(Q45_3, Q45_4) %>%
+  group_by(Q45_3,Q45_4) %>%
+  summarise(Count = n())
+
+ggplot(Heatmap,aes(x=Q45_3,y=Q45_4,fill=log(Count))) +
+  geom_tile() +
+  xlab('Leisure') + ylab('Shopping') +
+  ggtitle('Clarity of Government advice') +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  scale_y_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme(legend.position="none")
+
+g1 <- ggplot(data=VV , aes(x=Q45_1,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Clarity of Government advice') + ylab('Percentage') +
+  ggtitle('Social distancing') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g1
+g2 <- ggplot(data=VV , aes(x=Q45_2,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Clarity of Government advice') + ylab('Percentage') +
+  ggtitle('Isolation') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g2
+g3 <- ggplot(data=VV , aes(x=Q45_3,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Clarity of Government advice') + ylab('Percentage') +
+  ggtitle('Leisure') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g3
+g4 <- ggplot(data=VV , aes(x=Q45_4,y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Clarity of Government advice') + ylab('Percentage') +
+  ggtitle('Shopping') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=2)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g4
+
+library(ggpubr)
+figure <- ggarrange(g1,g2,g3,g4,
+                    ncol = 2, nrow = 2)
+figure
+ggsave('images_pct/Clarity of advice.png',  figure, width=10,height=7, units='in', dpi= 1200)
+```
+
+In each case the commonest value chosen was 10/10, suggesting that the Government's recommendations are well understood, by most people. Men, younger people, those who reported both lower and higher than Leaving Certificate levels of education, and people not in formal employment, were all likely to assess the clarity of communication slightly less favourably.
+
+## Change in your behaviour, and other people's behaviour
+
+```{r Behaviours in contexts}
+kable(table(VV$Q46_1),caption='Self at home') 
+kable(table(VV$Q47_1),caption='Others at home')
+
+kable(table(VV$Q46_2),caption='Self at work') 
+kable(table(VV$Q47_2),caption='Others at work')
+
+kable(table(VV$Q46_3),caption='Self in public places') 
+kable(table(VV$Q47_3),caption='Others in public places')
+
+Behaviour <- VV %>%
+  select(ID,Q46_1,Q47_1,Q46_2,Q47_2,Q46_3,Q47_3) %>%
+  pivot_longer(-ID, names_to = 'Question',values_to = 'Count') %>%
+  mutate(Person = ifelse(str_detect(Question,'46'),'Self','Others')) %>%
+  mutate(Place = (recode(Question,
+                      "Q46_1" = 'Home',
+                       "Q46_2" = 'Work', 
+                       "Q46_3" = 'Public place',
+                       "Q47_1" = 'Home',
+                       "Q47_2" = 'Work',
+                       "Q47_3" = 'Public place')))
+
+g1 <- ggplot(data=Behaviour %>% filter(Place == 'Home'),
+             aes(x=Count,fill=Person,y = (..count..)/sum(..count..))) +
+  geom_bar(position = "dodge2",colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("yellow", "#E69F00", "#56B4E9")) +
+  xlab('Adaptation of behaviours') + ylab('Percentage') +
+  ggtitle('At home') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=1)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g1
+g2 <- ggplot(data=Behaviour %>% filter(Place == 'Work'),
+             aes(x=Count,fill=Person,y = (..count..)/sum(..count..))) +
+  geom_bar(position = "dodge2",colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("yellow", "#E69F00", "#56B4E9")) +
+  xlab('Adaptation of behaviours') + ylab('Percentage') +
+  ggtitle('At work') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=1)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g2
+g3 <- ggplot(data=Behaviour %>% filter(Place == 'Public place'),
+             aes(x=Count,fill=Person,y = (..count..)/sum(..count..))) +
+  geom_bar(position = "dodge2",colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("yellow", "#E69F00", "#56B4E9")) +
+  xlab('Adaptation of behaviours') + ylab('Percentage') +
+  ggtitle('In public places') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=1)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16))
+g3
+
+g4 <- ggplot(data=Behaviour,
+             aes(x=Count,fill=Person,y = (..count..)/length(VV$ID))) + #sum(..count..))) +
+  geom_bar(position = "dodge2",colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("yellow", "#E69F00", "#56B4E9")) +
+  xlab('Adaptation of behaviours') + ylab('Percentage') +
+  ggtitle('At home') +
+  scale_x_binned(breaks=seq(from=0,t=10,by=1)) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0),
+        axis.title.x.bottom = element_text(size=16)) +
+  facet_wrap(~Place,nrow=1,scales='fixed')
+g4
+ggsave('images_pct/Adaptation of behaviours.png',  g4, width=10,height=7, units='in', dpi= 1200)
+```
+
+The large majority of people report that they have adapted their behaviour, and that others have done the same.
+
+## Activities chosen
+
+```{r Activities}
+table(VV$Q50)
+sort(unique(VV$Q50))[!str_detect(sort(unique(VV$Q50)),",")]
+
+VV <- VV %>%
+  mutate(Q50a = str_replace_all(Q50,
+                       c("Board games \\(online or not\\) with other people" = '1',
+                       "Chatting with other people in the open air more than 2m apart" = '2',
+                       "Chatting with other people while you can't see them \\(e.g. by phone\\)" = '3',
+                       "Chatting with other people while you see them on a screen" = '4',
+                       "Going for a walk outside \\(apart from going to the shop\\)" = '5',
+                       "Going outside cycling \\(separate from going to the shop\\)" = '6',
+                       "Indoor exercises \\(yoga, stretching, exercise bike\\)" = '7'))) %>%
+  mutate(Q50a = str_replace_all(Q50a,c(" " = '')))
+sort(unique(VV$Q50a))[!str_detect(sort(unique(VV$Q50a)),",")]
+sort(unique(VV$Q50a))[str_detect(sort(unique(VV$Q50a)),",")]
+
+VV <- VV %>%
+  mutate(Q50a_1 = str_detect(Q50a,'1')) %>%
+  mutate(Q50a_2 = str_detect(Q50a,'2')) %>%
+  mutate(Q50a_3 = str_detect(Q50a,'3')) %>%
+  mutate(Q50a_4 = str_detect(Q50a,'4')) %>%
+  mutate(Q50a_5 = str_detect(Q50a,'5')) %>%
+  mutate(Q50a_6 = str_detect(Q50a,'6')) %>%
+  mutate(Q50a_7 = str_detect(Q50a,'7'))
+  
+
+table(VV$Q50a_7)
+table(VV$Q50a,VV$Q50a_2)
+
+Activity <- VV %>%
+  select(ID,Q50a_1,Q50a_2,Q50a_3,Q50a_4,Q50a_5,Q50a_6,Q50a_7) %>%
+  rename('Board games' = Q50a_1, 'Open air chat' = Q50a_2,
+         'Phone chat' = Q50a_3, 'Video chat' = Q50a_4, 'Walking' = Q50a_5,
+         'Cycling' = Q50a_6, 'Indoor exercise' = Q50a_7) %>%
+  pivot_longer(-ID, names_to='Activity', values_to='count') %>%
+  mutate(count = as.numeric(count)) %>%
+  mutate_all(~replace(., is.na(.), 0))
+
+Activity_ID <- Activity %>% group_by(ID) %>%
+  summarise(n=sum(count))
+
+Activity_Act <- Activity %>% group_by(Activity) %>%
+  summarise(n=sum(count))
+
+
+g <- ggplot(Activity_ID, aes(x=n, y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of activities reported') + ylab('Percentage') +
+  scale_y_continuous(labels=scales::percent) +
+  ggtitle('Reported activities') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Activities_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+
+g <- ggplot(Activity_Act, aes(x=Activity, y = n/length(VV$ID))) +
+  geom_col(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Activity') + ylab('Percentage') +
+  ggtitle('Number of people reporting each activity') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Activites_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+
+## Childcare
+
+```{r Cleanup children}
+VV <- VV %>%
+  mutate(Preschool = recode(Q23_1_1,
+         "0" = "0",
+         "00" = "0",
+         "O" = "0",
+         "0 1" = "1",
+         "01" = "1",
+         "O1" = "1",
+         "I" = "1",
+         "l" = "1",
+         "02" = "2",
+         "02/" = "2",
+         "Q2" = "2",
+         "03" = "3",
+         "10" = NA_character_,
+         "11" = NA_character_,
+         "12" = NA_character_,
+         "16" = NA_character_,
+         "17" = NA_character_,
+         "20" = "2",
+         "6" = "1",
+         "8" = "1"
+         ))
+
+VV <- VV %>%
+  mutate(Primary = recode(Q23_2_1,
+                            "`1" = "1",
+                            "0" = "0",
+                            "0 1" = "0",
+                            '0\"1' = "1",
+                            "0/1" = "1",
+                            "00" = "0",
+                            "001" = "1",
+                            "003" = "3",
+                            "01" = "1",
+                            "012" = NA_character_,
+                            "02" = "2",
+                            "023" = NA_character_,
+                            "02ĺ" = NA_character_,
+                            "03" = "3",
+                            "04" = "4",
+                            "05" = "5",
+                            "09" = "9",
+                            "1" = "1",
+                            "1€" = NA_character_,
+                            "10" = NA_character_,
+                            "11" = "1",
+                            "14" = NA_character_,
+                            "16" = NA_character_,
+                            "2" = "1",
+                            "2 home educating children" = "2",
+                            "20" = NA_character_,
+                            "2"= "2",
+                            "3" = "3",
+                            "30" = "3",
+                            "4" = "4",
+                            "4?" = "4",
+                            "4.0" = "4",
+                            "5" = "5",
+                            "6" = "6",
+                            "8" = "8",
+                            "9" = "9",
+                            "I" = "1",
+                            "W" = NA_character_))
+
+VV <- VV %>%
+  mutate(Lower_Secondary = recode(Q23_3_1,
+                                  "0" = "0",
+                                  "0 1" = "1",
+                                  "00" = "0",
+                                  "000" = "0",
+                                  "00000" = "0",
+                                  "01" = "1",
+                                  "01`" = "1",
+                                  "011" = "1",
+                                  "0111" = "1",
+                                  "013" = NA_character_,
+                                  "014" = NA_character_,
+                                  "02" = "2",
+                                  "03" = "3",
+                                  "04" = "4",
+                                  "1" = "1",
+                                  "1 (me)" = "1",
+                                  "10" = "1",
+                                  "101000001" = NA_character_,
+                                  "11" = NA_character_,
+                                  "12" = NA_character_,
+                                  "13" = NA_character_,
+                                  "14" = NA_character_,
+                                  "16" = NA_character_,
+                                  "17" = NA_character_,
+                                  "2" = "2",
+                                  "20" = "2",
+                                  "21" = "2",
+                                  "3" = "3",
+                                  "30" = "3",
+                                  "4" = "4",
+                                  "40" = "4",
+                                  "5" = "5",
+                                  "I" = "1",
+                                  "O" = "0",
+                                  "O1" = "1",
+                                  "q" = NA_character_))
+
+VV <- VV %>%
+  mutate(Upper_Secondary = recode(Q23_4_1,
+                                  "-" = NA_character_,
+                                  "0" = "0",
+                                  "0 it" = "0",
+                                  "0[" = "0",
+                                  "00" = "0",
+                                  "001" = "1",
+                                  "01" = "1",
+                                  "010" = "1",
+                                  "02" = "2",
+                                  "02’" = "2",
+                                  "03" = "3",
+                                  "05" = "5",
+                                  "0l1" = "1",
+                                  "1" = "1",
+                                  "1 and it’s me0" = "1",
+                                  "10" = NA_character_,
+                                  "110" = NA_character_,
+                                  "15" = NA_character_,
+                                  "16" = NA_character_,
+                                  "17" = NA_character_,
+                                  "170" = NA_character_,
+                                  "2" = "2",
+                                  "20" = "2",
+                                  "3" = "3",
+                                  "4" = "4",
+                                  "I" = "1",
+                                  "O1" = "1",
+                                  "Ya" = NA_character_))
+
+table(VV$Q23_1_1, useNA = 'ifany') # Preschool
+table(VV$Preschool, useNA = 'ifany')
+
+table(VV$Q23_2_1, useNA = 'ifany') # Primary
+table(VV$Primary, useNA = 'ifany')
+
+table(VV$Q23_3_1, useNA = 'ifany') # Lower secondary
+table(VV$Lower_Secondary, useNA = 'ifany')
+
+table(VV$Q23_4_1, useNA = 'ifany') # Upper secondary
+table(VV$Upper_Secondary, useNA = 'ifany')
+
+```
+
+# Practical issues
+
+```{r Primary problems}
+#c("I am not able to do or help with the work", "I do not have access to all the information needed", "My internet connection is not reliable enough", "I don't have the necessary resources (laptop, access to computer,…)", "No, none of the above")
+# Q26a, Q28, Q30 - Did you encounter any practical problems with the work sent from school?
+
+VV <- VV %>%
+  mutate(Q26a = str_replace_all(Q26,
+                       c("No, none of the above" = '0',
+                       "I do not have access to all the information needed" = '1',
+                       "I am not able to do or help with the work" = '2',
+                       "My internet connection is not reliable enough" = '3',
+                       "I don't have the necessary resources \\(laptop, access to computer,…\\)" = '4',
+                       "I don’t have sufficient resources \\(too many people who need the computer/laptop/other\\)" = '5')
+                       )) %>%
+  mutate(Q26a = str_replace_all(Q26a,c(" " = '')))
+# Check
+sort(unique(VV$Q26a))[!str_detect(sort(unique(VV$Q26a)),",")] # One problem
+sort(unique(VV$Q26a))[str_detect(sort(unique(VV$Q26a)),",")] # More than one problem
+
+VV <- VV %>%
+  mutate(Q26a_0 = str_detect(Q26a,'0')) %>%
+  mutate(Q26a_1 = str_detect(Q26a,'1')) %>%
+  mutate(Q26a_2 = str_detect(Q26a,'2')) %>%
+  mutate(Q26a_3 = str_detect(Q26a,'3')) %>%
+  mutate(Q26a_4 = str_detect(Q26a,'4')) %>%
+  mutate(Q26a_5 = str_detect(Q26a,'5'))
+  
+
+table(VV$Q26a_5)
+table(VV$Q26a,VV$Q26a_2)
+
+ProblemP <- VV %>%
+  filter(!is.na(Primary)) %>%
+  select(ID,Q26a_0,Q26a_1,Q26a_2,Q26a_3,Q26a_4,Q26a_5) %>%
+  rename('None' = Q26a_0, 'Information needed' = Q26a_1,
+         "Can't help" = Q26a_2, 'Reliable internet' = Q26a_3,
+         'Necessary resources' = Q26a_4, "Enough resources" = Q26a_5) %>%
+  pivot_longer(-ID, names_to='Problem', values_to='count') %>%
+  mutate(count = as.numeric(count)) %>%
+  mutate(School = 'Primary') %>%
+  mutate_all(~replace(., is.na(.), 0))
+```
+
+## Lower secondary  
+
+```{r Lower secondary problems}
+#c("I am not able to do or help with the work", "I do not have access to all the information needed", "My internet connection is not reliable enough", "I don't have the necessary resources (laptop, access to computer,…)", "No, none of the above")
+# Q26a, Q28, Q30 - Did you encounter any practical problems with the work sent from school?
+
+VV <- VV %>%
+  mutate(Q28a = str_replace_all(Q28,
+                       c("No, none of the above" = '0',
+                       "I do not have access to all the information needed" = '1',
+                       "I am not able to do or help with the work" = '2',
+                       "My internet connection is not reliable enough" = '3',
+                       "I don't have the necessary resources \\(laptop, access to computer,…\\)" = '4',
+                       "I don’t have sufficient resources \\(too many people who need the computer/laptop/other\\)" = '5')
+                       )) %>%
+  mutate(Q28a = str_replace_all(Q28a,c(" " = '')))
+# Check
+sort(unique(VV$Q28a))[!str_detect(sort(unique(VV$Q28a)),",")] # One problem
+sort(unique(VV$Q28a))[str_detect(sort(unique(VV$Q28a)),",")] # More than one problem
+
+VV <- VV %>%
+  mutate(Q28a_0 = str_detect(Q28a,'0')) %>%
+  mutate(Q28a_1 = str_detect(Q28a,'1')) %>%
+  mutate(Q28a_2 = str_detect(Q28a,'2')) %>%
+  mutate(Q28a_3 = str_detect(Q28a,'3')) %>%
+  mutate(Q28a_4 = str_detect(Q28a,'4')) %>%
+  mutate(Q28a_5 = str_detect(Q28a,'5'))
+  
+
+table(VV$Q28a_5)
+table(VV$Q28a,VV$Q28a_2)
+
+ProblemL <- VV %>%
+  filter(!is.na(Lower_Secondary)) %>%
+  select(ID,Q28a_0,Q28a_1,Q28a_2,Q28a_3,Q28a_4,Q28a_5) %>%
+  rename('None' = Q28a_0, 'Information needed' = Q28a_1,
+         "Can't help" = Q28a_2, 'Reliable internet' = Q28a_3,
+         'Necessary resources' = Q28a_4, "Enough resources" = Q28a_5) %>%
+  pivot_longer(-ID, names_to='Problem', values_to='count') %>%
+  mutate(count = as.numeric(count)) %>%
+  mutate(School = 'Lower Secondary') %>%
+  mutate_all(~replace(., is.na(.), 0))
+```
+
+## Upper secondary
+
+```{r Upper secondary problems}
+#c("I am not able to do or help with the work", "I do not have access to all the information needed", "My internet connection is not reliable enough", "I don't have the necessary resources (laptop, access to computer,…)", "No, none of the above")
+# Q26, Q28, Q30 - Did you encounter any practical problems with the work sent from school?
+
+VV <- VV %>%
+  mutate(Q30a = str_replace_all(Q30,
+                       c("None" = '0', # Not 'No, none of the above' !!!
+                       "I do not have access to all the information needed" = '1',
+                       "I am not able to do or help with the work" = '2',
+                       "My internet connection is not reliable enough" = '3',
+                       "I don't have the necessary resources \\(laptop, access to computer,…\\)" = '4',
+                       "I don’t have sufficient resources \\(too many people who need the computer/laptop/other\\)" = '5')
+                       )) %>%
+  mutate(Q30a = str_replace_all(Q30a,c(" " = '')))
+# Check
+sort(unique(VV$Q30a))[!str_detect(sort(unique(VV$Q30a)),",")] # One problem
+sort(unique(VV$Q30a))[str_detect(sort(unique(VV$Q30a)),",")] # More than one problem
+
+VV <- VV %>%
+  mutate(Q30a_0 = str_detect(Q30a,'0')) %>%
+  mutate(Q30a_1 = str_detect(Q30a,'1')) %>%
+  mutate(Q30a_2 = str_detect(Q30a,'2')) %>%
+  mutate(Q30a_3 = str_detect(Q30a,'3')) %>%
+  mutate(Q30a_4 = str_detect(Q30a,'4')) %>%
+  mutate(Q30a_5 = str_detect(Q30a,'5'))
+  
+
+table(VV$Q30a_5)
+table(VV$Q30a,VV$Q30a_2)
+
+ProblemU <- VV %>%
+  filter(!is.na(Upper_Secondary)) %>%
+  select(ID,Q30a_0,Q30a_1,Q30a_2,Q30a_3,Q30a_4,Q30a_5) %>%
+  rename('None' = Q30a_0, 'Information needed' = Q30a_1,
+         "Can't help" = Q30a_2, 'Reliable internet' = Q30a_3,
+         'Necessary resources' = Q30a_4, "Enough resources" = Q30a_5) %>%
+  pivot_longer(-ID, names_to='Problem', values_to='count') %>%
+  mutate(count = as.numeric(count)) %>%
+  mutate(School = 'Upper Secondary') %>%
+  mutate_all(~replace(., is.na(.), 0))
+```
+
+## Pooled problems
+
+```{r}
+
+Problem <- bind_rows(ProblemP, ProblemL, ProblemU) %>%
+  mutate(School = factor(School,
+                            levels=c("Primary", "Lower Secondary", "Upper Secondary"))) %>%
+  mutate(Problem = factor(Problem,
+                            levels=c("None", "Enough resources", "Can't help",
+                                     "Information needed", "Reliable internet",
+                                     "Necessary resources")))
+ 
+
+Problem_ID <- Problem %>% group_by(School,ID) %>%
+  summarise(n=sum(count))
+
+Problem_Type <- Problem %>% group_by(School,Problem) %>%
+  summarise(n=sum(count))
+
+g <- ggplot(Problem_ID, aes(x=n, y = (..count..)/sum(..count..) )) +
+  geom_bar(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Number of problems') + ylab('Percentage') +
+  ggtitle('Reported activities') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0)) +
+  facet_wrap(~School)
+g
+ggsave('images_pct/Problems_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+
+g <- ggplot(Problem_Type, aes(x=Problem,y = n/length(VV$ID))) +
+  geom_col(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Problem') + ylab('Percentage') +
+  ggtitle('Number of people reporting each problem') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0)) +
+  facet_wrap(~School)
+g
+ggsave('images_pct/Problems_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+# Continuing the curriculum
+
+```{r Continue curriculum}
+VV <- VV %>%
+  mutate(Q25a = recode(Q25,
+                       "No, schooling more or less stopped when the schools closed" = "None",
+                       "Yes, the school has sent work to do at home" = "Home Work",
+                       "Yes, the school has sent work to do at home AND provides supports online." = "Home & Online")) %>%
+  
+  mutate(Q27a = recode(Q27,
+                       "No, schooling more or less stopped when the schools closed" = "None",
+                       "Yes, the school has sent work to do at home" = "Home Work",
+                       "Yes, the school has sent work to do at home AND provides supports online." = "Home & Online")) %>%
+  
+  mutate(Q29a = recode(Q29,
+                       "No, schooling more or less stopped when the schools closed" = "None",
+                       "Yes, the school has sent work to do at home" = "Home Work",
+                       "Yes, the school has sent work to do at home AND provides supports online." = "Home & Online"))
+
+table(VV$Q25a)
+table(VV$Q27a)
+table(VV$Q29a)
+
+Q25a <- VV %>%
+  filter(!is.na(Primary)) %>%
+  select(ID, Primary, Q25a)
+Q27a <- VV %>%
+  filter(!is.na(Lower_Secondary)) %>%
+  select(ID, Lower_Secondary, Q27a)
+Q29a <- VV %>%
+  filter(!is.na(Upper_Secondary)) %>%
+  select(ID, Upper_Secondary, Q29a)
+
+
+HomeSchool <- VV %>% select(ID,Q25a,Q27a,Q29a) %>%
+  rename("Primary" = Q25a,
+         "Lower Secondary" = Q27a,
+         "Upper Secondary" = Q29a) %>%
+  pivot_longer(-ID,names_to = 'School', values_to = 'Support') %>%
+  mutate(Count = ifelse(is.na(Support),Support,1)) %>%
+  filter(!is.na(Support)) %>%
+   mutate(School = factor(School,
+                            levels=c("Primary", "Lower Secondary", "Upper Secondary"))) %>%
+  mutate(Support = factor(Support,
+                            levels=c("Home Work", "Home & Online", "None")))
+
+HomeSchool_ID <- HomeSchool %>% group_by(School,ID) %>%
+  summarise(n=n())
+
+HomeSchool_Type <- HomeSchool %>% group_by(School,Support) %>%
+  summarise(n=n())
+
+
+g <- ggplot(HomeSchool_Type, aes(x=Support,y = n/length(VV$ID))) +
+  geom_col(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Support') + ylab('Percentage') +
+  ggtitle('Number of families receiving each support') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0)) +
+  facet_wrap(~School)
+g
+ggsave('images_pct/Problems_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+
+# Childcare arrangmeents for pre-school children
+
+
+```{r Childcare for preschoolers}
+table(VV$Q24)
+sort(unique(VV$Q24))[!str_detect(sort(unique(VV$Q24)),",")]
+
+VV <- VV %>%
+  mutate(Q24a = str_replace_all(Q24,
+                       c("Just at home" = "0", "Childminder" = "1",
+                       "With grandparents" = "2",
+                       "With family \\(not grandparents\\)" = "3",
+                       "With ex-partner" = "4", "With friends/acquaintances" = "5",
+                       "Other" = "6")
+                       )) %>%
+  mutate(Q24a = str_replace_all(Q24a,c(" " = '')))
+
+sort(unique(VV$Q24a))[!str_detect(sort(unique(VV$Q24a)),",")]
+sort(unique(VV$Q24a))[str_detect(sort(unique(VV$Q24a)),",")]
+
+VV <- VV %>%
+  mutate(Q24a_0 = str_detect(Q24a,'0')) %>%
+  mutate(Q24a_1 = str_detect(Q24a,'1')) %>%
+  mutate(Q24a_2 = str_detect(Q24a,'2')) %>%
+  mutate(Q24a_3 = str_detect(Q24a,'3')) %>%
+  mutate(Q24a_4 = str_detect(Q24a,'4')) %>%
+  mutate(Q24a_5 = str_detect(Q24a,'5')) %>%
+  mutate(Q24a_6 = str_detect(Q24a,'6'))
+  
+
+table(VV$Q24a_5)
+table(VV$Q24a,VV$Q24a_2)
+
+Childcare <- VV %>%
+  select(ID,Preschool,Q24a_0,Q24a_1,Q24a_2,Q24a_3,Q24a_4,Q24a_5,Q24a_6) %>%
+  rename('At home' = Q24a_0, 'Childminder' = Q24a_1,
+         'Grandparents' = Q24a_2, 'Other family' = Q24a_3, 'Ex-partner' = Q24a_4,
+         'Friends' = Q24a_5, 'Other' = Q24a_6) %>%
+  pivot_longer(-c(ID, Preschool), names_to='Childcare', values_to='count') %>%
+  filter(!is.na(Preschool)) %>%
+  filter(Preschool > 0) %>%
+  mutate(count = as.numeric(count)) %>%
+  mutate_all(~replace(., is.na(.), 0)) %>%
+  mutate(Childcare = factor(Childcare,
+                            levels=c("At home", "Childminder",
+                                     "Other family", "Other",
+                                     "Grandparents", "Friends",
+                                     "Ex-partner")
+))
+
+Childcare_ID <- Childcare %>% group_by(ID) %>%
+  summarise(n=sum(count))
+
+Childcare_ID_pct <- Childcare_ID %>%
+  group_by(n) %>%
+  summarise(Sum = sum(n)) %>%
+  mutate(Pct = round(100*Sum / sum(Sum),2))
+
+Childcare_ID_pct
+
+Childcare_Source <- Childcare %>% group_by(Childcare) %>%
+  summarise(n=sum(count))
+
+g <- ggplot(Childcare_ID, aes(x=n, y = (..count..)/sum(..count..))) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of activities reported') + ylab('Percentage') +
+  scale_y_continuous(labels=scales::percent) +
+  ggtitle('Reported sources of childcare') +
+  scale_x_binned(breaks=c(0,1,2,3,4,5,6)) +
+  theme_classic(base_size = 25) 
+g
+ggsave('images_pct/Childcare_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+ChildcareUsersPreschool <- length(unique(Childcare$ID))
+
+g <- ggplot(Childcare_Source, aes(x=Childcare,
+                                  y = n/ChildcareUsersPreschool)) +
+  geom_col(fill='yellow',colour='black') +
+  scale_y_continuous(labels=scales::percent) +
+  xlab('Source of childcare') + ylab('Percentage') +
+  ggtitle('Percentage of people using each source of childcare') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+ggsave('images_pct/Childcare_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+# Leaving certificate
+
+```{r Leaving cert}
+table(VV$Q31,useNA = 'ifany')
+
+LC_Pct = round(100*5237/(5237+98850),2); LC_Pct
+
+```
+
+
+# Mental health etc.
+
+```{r Mental health}
+library(sjPlot)
+sort(unique(VV$Q55))
+LEVELS = c("None of the time", "A little of the time", "Some of the time", "A good bit of the time", "Most of the time", "All of the time")
+
+     
+table(VV$Q51)
+
+Likert <- VV %>%
+  select(Q51,Q52,Q53,Q54,Q55,Q56,Q57,Q58,Q59) %>%
+  mutate(Q51 = factor(Q51,levels=LEVELS)) %>%
+  mutate(Q52 = factor(Q52,levels=LEVELS)) %>%
+  mutate(Q53 = factor(Q53,levels=LEVELS)) %>%
+  mutate(Q54 = factor(Q54,levels=LEVELS)) %>%
+  mutate(Q55 = factor(Q55,levels=LEVELS)) %>%
+  mutate(Q56 = factor(Q56,levels=LEVELS)) %>%
+  mutate(Q57 = factor(Q57,levels=LEVELS)) %>%
+  mutate(Q58 = factor(Q58,levels=LEVELS)) %>%
+  mutate(Q59 = factor(Q59,levels=LEVELS)) %>%
+  rename(Life = Q51, Nervous = Q52, Depressed = Q53,
+         Calm = Q54, Energetic = Q55, Blue = Q56, Happy = Q57,
+         Worn_out = Q58, Tired = Q59)
+
+table(Likert$Worn_out,Likert$Tired)
+
+items = c("Full of life","Very nervous","Down in the dumps","Calm and peaceful","Lots of energy","Downhearted and blue","A happy person","Worn out","Tired")
+
+plot_likert(Likert[1:300,])
+
+g <- plot_likert(Likert, axis.labels = items,
+             sort.frq = 'pos.asc', values = 'hide',
+            show.n = FALSE, geom.colors = 'Spectral',
+            title='Mood over the last week')
+g
+ggsave('images/Likert_Mood.png',  g, width=10,height=7, units='in', dpi= 1200)
+```
+
+Most people are positive, few report being down all or most of the time over the last week, and many describe themselves as happy, calm, or full of life.
+

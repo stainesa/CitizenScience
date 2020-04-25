@@ -1,0 +1,16 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.pdf
+*.html
+*.docx
+*_cache/
+data/
+images/
+SF6D_programmes/
+LatexTest.*
+Load.pdf
+Survey1-analysis.log
+images_pct
+weights

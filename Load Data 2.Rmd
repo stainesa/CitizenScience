@@ -1,0 +1,554 @@
+---
+title: "Load and save data from the second survey"
+author: "Anthony Staines"
+date: "22/04/2020"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+# Setup
+```{r setup, include=FALSE}
+library(knitr)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = "hide",
+                      cache=TRUE,
+                      fig.width=7.5, fig.height=6, dpi=600)
+```
+
+## Load the data
+
+Manual editing has been done for five rows (Note these are ROW numbers, and not ID's)
+
+*  3662 Runs one column longer than it should, 'fertility treatment' for Q45_1 put into the previous question Q98_5Text (What kind of treatment or check-up do you need or are you waiting for? - Other - Text)
+* 7296 Runs one column longer than it should, Extra text added ot the end of Q70
+* 10740 ditto (Several columns over)
+* 12008 ditto
+* 13265 ditto
+* 14448 ditto
+* 14926 ditto
+* 15921 ditto
+* 23023 ditto
+* 24329 ditto
+* 33566 ditto
+* 34200 ditto
+
+* 34384 ditto (Several columns over)
+
+We load the data from the original file, edited as listed above. We add an ID variable, running from 1 to 105926.
+
+```{r load}
+
+VV.names <- read_xls('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.xls', sheet='Data', col_names=FALSE, n_max=1) # Final Survey 2
+VV.names['...17'][1] = 'Q5_1'
+VV.names['...18'][1] = 'Q6_1'
+
+
+
+VV <- read_csv('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.csv', guess_max = 10000, skip=3, col_names=as.character(VV.names)) %>%
+  mutate(ID=seq_along(StartDate)) %>%
+  mutate(ID = as.character(ID))
+
+#NN.names <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', n_max=1)
+#NN <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', guess_max = 10000, skip=3, col_names=names(NN.names)) %>%
+#  mutate(ID=seq_along(StartDate)) %>%
+#  mutate(ID = as.character(ID))
+
+
+#rm(VV.names,NN.names)
+rm(VV.names)
+```
+
+#Remove Spam and Preview survey answers
+
+There are 41 answers flagged as Spam, and 10 as Survey preview, with 105761 valid answers left.
+
+```{r Remove Spam and Preview answers}
+table(VV$Status)
+VV <- VV %>%
+  filter(Status == 'IP Address') # 34693
+#table(NN$Status)
+#NN <- NN %>%
+#  filter(Status == 0) # 105763
+
+#Extras <- NN %>%
+#  anti_join(VV, by='ResponseId') # Two late responses in NN, but not in VV
+
+#JJ <- VV %>%
+#  inner_join(NN,by=c('ResponseId')) # Need to use ResposneID as the match
+```
+
+## Identify code-value pairs
+
+```{r See if numbers match text values, results = 'show'}
+##Q5
+#Q4 <- JJ %>%
+#  select(Q4.x,Q4.y) %>%
+#  arrange(Q4.x,Q4.y) %>%
+#  distinct()
+#Q4
+
+#Q5 <- JJ %>%
+#  select(Q5.x,Q5.y) %>%
+#  arrange(Q5.x,Q5.y) %>%
+#  distinct()
+#Q5
+# Mysterious bug fixed.
+#rm(Q4,Q5,JJ,NN)
+```
+
+We're going to use only the values file for further analyses.
+
+# Eligibility screening questions
+
+## Q1 Consent to take part
+
+```{r Consent, results = 'show'}
+kable(table(VV$Q1),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 52 refusals
+  
+```
+
+## Q66 Do you live in the RoI?
+
+```{r Residence, results = 'show'}
+kable(table(VV$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 146 outside RoI
+  
+```
+
+## Q5 Age
+
+
+```{r check ages}
+VV <- VV %>%
+  mutate(Age =  recode(Q5,
+              'Under 14' = '14',
+              'Over 90' = '90'
+              )) %>%
+  mutate(Age = as.numeric(Age)) # Recode Q5 to Age, a number.
+  
+kable(table(VV$Q5))
+kable(table(VV$Q5[VV$Age < 15])) # 45
+```
+
+We remove respondents who did not consent, do not live in the RoI, or who were aged under 15.
+
+```{r filter out ineligible responses}
+
+
+VV <- VV %>%
+  filter(Q1 == 'Yes') %>%
+  filter(Q66 == 'Yes') %>%
+  filter(Age >= 15) # 33876 - lose 45 younger people
+```
+
+There are 22,227 valid responses.
+
+# Weights
+
+Data for weighting comes from the 2016 census population results by county, sex, age group, and level of education, table EA037.
+
+```{r read weights}
+EA037 <- read_xlsx('weights/EA037.xlsx', sheet='Data')
+
+# Source :- https://statbank.cso.ie/px/pxeirestat/Statire/SelectVarVal/Define.asp?Maintable=EA037&Planguage=0 2016 Census
+
+Weights_CSO <- EA037 %>%
+  fill(Education,Sex, Age, County) %>% # Fill gaps down in the file with values above. Has to come first in this pipeline!
+  filter(County != '0') %>% # Structural zeroes in the file, not real data
+  select(-Number_2011) %>% rename(Number = Number_2016) %>% # Drop 2011
+  filter(County != 'State') %>% filter(Age != 'All ages') %>%
+  filter(Education != 'Total education ceased and not ceased') %>% # Drop totals
+  filter(Education != 'Economic status - total at school, university, etc.') %>% # Drop students
+  filter(Education != 'Economic status - other') # Drop 'other'
+
+table(Weights_CSO$Education)
+table(Weights_CSO$Sex)
+table(Weights_CSO$Age)
+table(Weights_CSO$County)
+
+Weights_CSO %>% group_by(Education) %>% summarize(n=sum(Number)) %>% write.csv('data/Weights_CSO_Education.csv')
+Weights_CSO %>% group_by(Age) %>% summarize(n=sum(Number))
+Weights_CSO %>% group_by(Sex) %>% summarize(n=sum(Number))
+
+options(tibble.print_max = Inf)
+  Weights_CSO %>% group_by(County) %>% summarize(n=sum(Number))
+options(tibble.print_max = 10)
+
+### The corresponding file from the Survey data
+Weights_Survey <- VV %>% select(ID, Q6, Age, Q5_1, Q7) %>%
+  rename(Sex = Q6,  County = Q5_1, Education = Q7) # Matching variables in the Survey data
+
+rm(EA037)
+```
+
+# Matching survey and census data
+
+We need to align the matching variables in the two datasets - Age, Sex, County and Education. The census table only includes people over 14. This is done by recoding the variables in the data sets to match.
+
+## Age and Sex
+
+```{r Sex and Age}
+#Sex
+Weights_CSO %>% distinct(Sex)
+Weights_Survey %>% distinct(Sex) # Can't match other, but will handle in weighting
+
+#Age
+Weights_CSO %>% distinct(Age) # 5 Year age groups
+Weights_Survey %>% distinct(Age) # Integers Needs to be recoded to the groups.
+
+#Recode age from the survey to match the census groupings
+Weights_Survey <- Weights_Survey %>%
+  mutate(Age_year  = round(Age)) %>%
+  mutate(Age_group = cut(Age_year,
+                         breaks=c(14,19,24,29,34,39,44,49,54,
+                                  59,64,69,74,79,84,120))) %>%
+  arrange(Age_year) %>%
+  mutate(Age_group_text = levels(Age_group)[Age_group]) %>%
+  mutate(Age_group_census = recode(Age_group_text,
+#                                   "(0,14]" = "Under 15 years", # Removed above
+                                   "(14,19]" = "15 - 19 years",
+                                   "(19,24]" = "20 - 24 years",
+                                   "(24,29]" = "25 - 29 years",
+                                   "(29,34]" = "30 - 34 years",
+                                   "(34,39]" = "35 - 39 years",
+                                   "(39,44]" = "40 - 44 years",
+                                   "(44,49]" = "45 - 49 years",
+                                   "(49,54]" = "50 - 54 years",
+                                   "(54,59]" = "55 - 59 years",
+                                   "(59,64]" = "60 - 64 years",
+                                   "(64,69]" = "65 - 69 years",
+                                   "(69,74]" = "70 - 74 years",
+                                   "(74,79]" = "75 - 79 years",
+                                   "(79,84]" = "80 - 84 years",
+                                   "(84,120]" = "85 years and over"))
+Weights_Survey %>% distinct(Age_group)
+Weights_Survey %>% distinct(Age_group_census)
+Weights_CSO %>% distinct(Age) # 5 Year age groups
+
+#Match ages 
+#Recode age from the survey to match the census groupings
+VV <- VV %>%
+  mutate(Age_year  = round(Age)) %>%
+  mutate(Age_group = cut(Age_year,
+                         breaks=c(14,19,24,29,34,39,44,49,54,
+                                  59,64,69,74,79,84,120))) %>%
+  arrange(Age_year) %>%
+  mutate(Age_group_text = levels(Age_group)[Age_group]) %>%
+  mutate(Age_group_census = recode(Age_group_text,
+  #                                 "(0,14]" = "Under 15 years", # Removed earlier
+                                   "(14,19]" = "15 - 19 years",
+                                   "(19,24]" = "20 - 24 years",
+                                   "(24,29]" = "25 - 29 years",
+                                   "(29,34]" = "30 - 34 years",
+                                   "(34,39]" = "35 - 39 years",
+                                   "(39,44]" = "40 - 44 years",
+                                   "(44,49]" = "45 - 49 years",
+                                   "(49,54]" = "50 - 54 years",
+                                   "(54,59]" = "55 - 59 years",
+                                   "(59,64]" = "60 - 64 years",
+                                   "(64,69]" = "65 - 69 years",
+                                   "(69,74]" = "70 - 74 years",
+                                   "(74,79]" = "75 - 79 years",
+                                   "(79,84]" = "80 - 84 years",
+                                   "(84,120]" = "85 years and over"))
+  
+
+VV %>% distinct(Age_group)
+VV %>% distinct(Age_group_census)
+table(VV$Age_group)
+```
+
+# County
+We need to match the geography. The main change needed is to group Dublin into one block, as there's no other simple way to link the survey geography and the census geography.
+
+```{r County}
+
+# County
+Weights_CSO %>% distinct(County)
+Weights_Survey %>% distinct(County)
+
+# So first merge all the Dublin's in the cenus data
+# Dublin City	Dublin
+# Dún Laoghaire-Rathdown	Dublin
+# Fingal	Dublin
+# South Dublin	Dublin
+
+Weights_CSO <- Weights_CSO %>%
+  mutate(County_merge = recode(County,
+                               'Dublin City' = 'Dublin',
+                               'Dún Laoghaire-Rathdown' = 'Dublin',
+                               'Fingal' = 'Dublin',
+                               'South Dublin' = 'Dublin'))
+
+table(Weights_CSO$County_merge,Weights_CSO$County)
+
+
+# Then recode the survey data to match the revised census data
+Weights_Survey <- Weights_Survey %>%
+  mutate(County_merge = recode(County,'Carlow' = 'Carlow',
+                  'Cavan' = 'Cavan','Clare' = 'Clare','Cork city' = 'Cork City',
+                  'Donegal' = 'Donegal','Dublin 1' = 'Dublin','Dublin 10' = 'Dublin',
+                  'Dublin 11' = 'Dublin','Dublin 12' = 'Dublin','Dublin 13' = 'Dublin',
+                  'Dublin 14' = 'Dublin','Dublin 15' = 'Dublin','Dublin 16' = 'Dublin',
+                  'Dublin 17' = 'Dublin','Dublin 18' = 'Dublin','Dublin 2' = 'Dublin',
+                  'Dublin 20' = 'Dublin','Dublin 22' = 'Dublin','Dublin 24' = 'Dublin',
+                  'Dublin 3' = 'Dublin','Dublin 4' = 'Dublin','Dublin 5' = 'Dublin',
+                  'Dublin 6' = 'Dublin','Dublin 6W' = 'Dublin','Dublin 7' = 'Dublin',
+                  'Dublin 8' = 'Dublin','Dublin 9' = 'Dublin','Dublin County' = 'Dublin',
+                  'Dublin North' = 'Dublin','Dublin South' = 'Dublin','Dublin West' = 'Dublin',
+                  'East Cork' = 'Cork County','Galway city' = 'Galway City','Galway county' = 'Galway County',
+                  'Kerry' = 'Kerry','Kildare' = 'Kildare','Kilkenny' = 'Kilkenny',
+                  'Laois' = 'Laois','Leitrim' = 'Leitrim','Limerick city' = 'Limerick City and County',
+                  'Limerick county' = 'Limerick City and County','Longford' = 'Longford',
+                  'Louth' = 'Louth','Mayo' = 'Mayo','Meath' = 'Meath',
+                  'Monaghan' = 'Monaghan','North Cork' = 'Cork County','North county Dublin' = 'Dublin',
+                  'Offaly' = 'Offaly','Roscommon' = 'Roscommon','Sligo' = 'Sligo',
+                  'South County Dublin' = 'Dublin','South County Dubliln' = 'Dublin',
+                  'Tipperary' = 'Tipperary','Waterford' = 'Waterford City and County',
+                  'West Cork' = 'Cork County','Westmeath' = 'Westmeath',
+                  'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
+
+# Then recode the survey data to match the revised census data
+VV <- VV %>%
+  mutate(County_merge = recode(Q5_1, 'Carlow' = 'Carlow',
+                  'Cavan' = 'Cavan','Clare' = 'Clare','Cork city' = 'Cork City',
+                  'Donegal' = 'Donegal','Dublin 1' = 'Dublin','Dublin 10' = 'Dublin',
+                  'Dublin 11' = 'Dublin','Dublin 12' = 'Dublin','Dublin 13' = 'Dublin',
+                  'Dublin 14' = 'Dublin','Dublin 15' = 'Dublin','Dublin 16' = 'Dublin',
+                  'Dublin 17' = 'Dublin','Dublin 18' = 'Dublin','Dublin 2' = 'Dublin',
+                  'Dublin 20' = 'Dublin','Dublin 22' = 'Dublin','Dublin 24' = 'Dublin',
+                  'Dublin 3' = 'Dublin','Dublin 4' = 'Dublin','Dublin 5' = 'Dublin',
+                  'Dublin 6' = 'Dublin','Dublin 6W' = 'Dublin','Dublin 7' = 'Dublin',
+                  'Dublin 8' = 'Dublin','Dublin 9' = 'Dublin','Dublin County' = 'Dublin',
+                  'Dublin North' = 'Dublin','Dublin South' = 'Dublin','Dublin West' = 'Dublin',
+                  'East Cork' = 'Cork County','Galway city' = 'Galway City','Galway county' = 'Galway County',
+                  'Kerry' = 'Kerry','Kildare' = 'Kildare','Kilkenny' = 'Kilkenny',
+                  'Laois' = 'Laois','Leitrim' = 'Leitrim','Limerick city' = 'Limerick City and County',
+                  'Limerick county' = 'Limerick City and County','Longford' = 'Longford',
+                  'Louth' = 'Louth','Mayo' = 'Mayo','Meath' = 'Meath',
+                  'Monaghan' = 'Monaghan','North Cork' = 'Cork County','North county Dublin' = 'Dublin',
+                  'Offaly' = 'Offaly','Roscommon' = 'Roscommon','Sligo' = 'Sligo',
+                  'South County Dublin' = 'Dublin','South County Dubliln' = 'Dublin',
+                  'Tipperary' = 'Tipperary','Waterford' = 'Waterford City and County',
+                  'West Cork' = 'Cork County','Westmeath' = 'Westmeath',
+                  'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
+
+table(VV$Q5_1,VV$County_merge)
+```
+
+# Education
+
+Table EA037 has a few categories which do not appear in the survey data, so these are left out. Specifically these are :-
+* 'Economic status - total at school, university, etc.'
+* 'Economic status - other'
+
+In addition Secondary education is broken down in the census, but not in the survey, into Lower secondary and Upper secondary, so these need to be combined.
+
+These are then matched to the codes in the survey data.
+
+```{r Education}
+Weights_CSO %>% distinct(Education) # 15 groups CSO
+Weights_Survey %>% distinct(Education) # 7 groups Survey
+
+Weights_CSO %>%
+  group_by(Education) %>%
+  summarise(N=sum(Number)) %>%
+  write_csv('data/Education_census.csv') # 15 groups
+
+Weights_Survey %>%
+  group_by(Education) %>%
+  summarise(N=n()) %>%
+  write_csv('data/Education_survey.csv') # 7 groups
+
+Weights_CSO <- Weights_CSO %>%
+  mutate(Education_Survey = recode(Education,
+                "Advanced certificate/completed apprenticeship" = "Nat. Cert or Diploma",
+                "Doctorate (Ph.D.)" = "Postgraduate",
+                "Higher certificate" = "Nat. Cert or Diploma",
+                "Honours bachelor degree/professional qualification or both" = "Third level primary degree (Bachelor)",
+                "Lower secondary" = "Secondary education",
+                "No formal education" = "No formal education/training",
+                "Not stated" = "Not stated",
+                "Ordinary bachelor degree/professional qualification or both" = "University degree",
+                "Postgraduate diploma or degree" = "Postgraduate (Master or PhD)",
+                "Primary" = "Primary education",
+                "Technical/vocational" = "Technical or Vocational",
+                "Upper secondary" = "Secondary education",
+                .default = 'NONE')) %>%
+  filter(Education_Survey != 'Not stated') %>%
+  filter(Education_Survey != 'NONE')
+
+Weights_CSO %>% distinct(Education_Survey) # 7 groups CSO
+Weights_Survey %>% distinct(Education) # 7 groups Survey
+
+
+table(Weights_CSO$Education_Survey,useNA = 'ifany')
+Weights_CSO %>% group_by(Education_Survey) %>% summarize(N = sum(Number)/2898384)
+Weights_Survey %>% group_by(Education) %>% summarize(N = n()/103824)
+```
+
+#Calculate post-stratification weights
+
+We merge the two sets on the combined variables Sex, Age, Education, and County. A small number of combinations did occur in the sample data, but did not occur in the census. These were given census numbers of 1, to avoid infinite weights.
+
+Weights are given as the proportion of people in the Census in a  given group, divided by the proportion in the Survey in that group.
+
+Prepare and check the dataframes.
+
+```{r merge prepare}
+Weights_Survey_match <- Weights_Survey %>%
+  select(ID, Sex, Age_group_census, Education, County_merge) %>%
+  group_by(Sex, Age_group_census, Education, County_merge) %>%
+  summarize(Sampled = n())  %>%# This is the number of people in the survey population who fit that combination
+  ungroup()
+
+sum(Weights_Survey_match$Sampled) # Correct 103,824
+
+Weights_CSO_match <- Weights_CSO %>%
+  group_by(Sex, Age, Education_Survey, County_merge) %>%
+  summarise(Census = sum(Number)) %>% # This is the number of people in the census population who fit that combination
+  ungroup()
+
+#Check
+sum(Weights_CSO_match$Census) # Correct 2,898,384 Not stated removed.
+rm(Weights_Survey, Weights_CSO)
+```
+
+
+```{r merge do}
+Weights_CSO_matched <- Weights_CSO_match %>%
+  full_join(Weights_Survey_match, 
+  by = c("Sex" = "Sex", "Age" = "Age_group_census",
+       "County_merge" = "County_merge", "Education_Survey" = "Education")) %>%
+  rename(County = County_merge, Age_group = Age) %>%
+  mutate(Census_fixed = ifelse(Census == 0,1,Census)) %>% # Avoids about 10 sampling weights of Inf
+  arrange(Census) %>%
+  mutate(Census_Proportion = Census_fixed/2898384) %>% # Total for table EA037
+  mutate(Sample_Proportion = Sampled/(103845)) %>%  # Total sample
+  mutate(Weights = Census_Proportion/Sample_Proportion) %>%
+  mutate(Weights = ifelse(is.na(Sampled),0,Weights))
+
+summary(Weights_CSO_matched$Weights)
+table(Weights_CSO_matched$Sex,is.na(Weights_CSO_matched$Weights))
+
+#Check
+sum(Weights_CSO_matched$Census, na.rm=TRUE) # 2898384 Correct
+sum(Weights_CSO_matched$Sampled, na.rm=TRUE) # 103824 Correct
+
+
+#Trimmed weights
+Weights_CSO_matched <- Weights_CSO_matched %>%
+  mutate(Weights_trimmed = ifelse(Weights > 7.5, 7.5, Weights)) %>%
+  arrange(desc(Weights))
+
+rm(Weights_CSO_match, Weights_Survey_match)
+```
+
+Now we look carefully at the weights.
+
+```{R Check weights}
+# People who are in our study, but who are not in the census (376 people in 208 rows)
+Not_in_census <- Weights_CSO_matched %>% filter(is.na(Census))
+sum(Not_in_census$Sampled) # 170
+# These are 170, grouped into 122 Age,County Education combinations, all of whom report Sex as 'Other'
+
+# Combinations who are not in our study, but are in the census
+Not_in_sample <- Weights_CSO_matched %>% filter(is.na(Sampled)) %>% filter(Census > 0)
+sum(Not_in_sample$Census) # 170
+
+#County
+ggplot(data=Weights_CSO_matched, aes(x = Weights, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+ggplot(data=Weights_CSO_matched, aes(x = Weights_trimmed, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+
+#Education
+ggplot(data=Weights_CSO_matched, aes(x = Weights, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+ggplot(data=Weights_CSO_matched, aes(x = Weights_trimmed, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+
+#Age
+ggplot(data=Weights_CSO_matched, aes(x = Weights, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+ggplot(data=Weights_CSO_matched, aes(x = Weights_trimmed, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+
+
+Weights_CSO_matched %>% arrange(desc(Weights)) %>% select(Weights, Weights_trimmed)
+
+rm(Not_in_census, Not_in_sample)
+```
+
+The range of weights is very wide, from just above zero (0.004) to 120. The smallest weights are for young people, aged 15 to 19, who reported having degrees, or post-graduate qualifications. These may have been students, or mistakes. The highest weights are for under-represented groups, for example males, with secondary education, aged 45-49 in Clare, of whom there were 1582 in the census and only 7 in the survey. The most obvious pattern in the weights is lower weights for women, and hgher weights for older people, for people with lower attained levels of education, and for people from areas with lower participation rates.
+
+## People without weights
+
+A specific issue is that the Census does not present figures for those who recorded their Sex as 'Other'. All of these are given weights of the median weight for people in the same age group, living in the same county, and with the same level of completed education.
+
+# Link weights with original data
+
+To do this, we split the data up into teo groups, by reported sex - 'other' and 'male' or 'female'. This is to calcualte reasonable weights for the former group.
+
+
+```{r Link weights to orignal data - prepare}
+summary(Weights_CSO_matched)
+Weights_CSO_matched %>% distinct(Sex)
+Weights_CSO_matched %>% distinct(Age_group)
+Weights_CSO_matched %>% distinct(County)
+Weights_CSO_matched %>% distinct(Education_Survey)
+
+## Estimate weights for people with Gender as 'Other' by weights derived from the census, for all people of the same age, education level, and County.
+
+Weights_Other = Weights_CSO_matched %>%
+  filter(!is.na(Sampled)) %>%
+  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  group_by(Education_Survey,Age_group,County) %>%
+  summarize(Weights = mean(Weights, na.rm=TRUE))  %>%
+  ungroup()
+Weights_Other %>% distinct(Education_Survey,Age_group,County) # 2082 distinct rows.
+summary(Weights_Other)
+
+Weights_MF = Weights_CSO_matched %>%
+  filter(!is.na(Sampled)) %>%
+  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  ungroup()
+Weights_MF %>% distinct(Education_Survey,Age_group,County,Sex) # 2082 distinct rows.
+summary(Weights_MF)
+
+rm(Weights_CSO_matched)
+```
+
+So, first we prepare the necessary data frames, and then we link them.
+
+```{r Link weights to original data - do}
+VV_Other <- VV %>%
+  filter(Q6 == 'Other') %>%
+  inner_join(Weights_Other, # Keep all the rows on the RHS
+             by = c("Q7" = "Education_Survey",
+                    "Age_group_census" = "Age_group",
+                    "County_merge" = "County")) %>%
+  mutate(Weights = ifelse(is.nan(Weights),1,Weights))
+
+VV_MF <- VV  %>%
+  filter(Q6 != 'Other') %>%
+  inner_join(Weights_MF, # Keep all the rows on the RHS
+             by = c("Q7" = "Education_Survey",
+                    "Age_group_census" = "Age_group",
+                    "County_merge" = "County",
+                    "Q6" = "Sex")) %>%
+  mutate(Weights = ifelse(is.nan(Weights),1,Weights))
+
+VV <- bind_rows(VV_MF, VV_Other)
+
+
+rm(Weights_Other, Weights_MF, VV_Other, VV_MF)
+```
+
+Finally we save the survey two data frame.
+
+```{r save file}
+
+save(VV,file = 'data/Survey2/Survey_2.rda')
+write_csv(VV,'data/Survey_2.csv')
+
+```
