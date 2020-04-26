@@ -35,18 +35,18 @@ We load the data from the original file, edited as listed above. We add an ID va
 
 ```{r load}
 
-VV.names <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', n_max=1) # Final Survey 1
-VV <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', guess_max = 10000, skip=3, col_names=names(VV.names)) %>%
+VV_1.names <- read_csv('data/Survey1/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', n_max=1) # Final Survey 1
+VV_1 <- read_csv('data/Survey1/Corona Citizens Science Project V0.3_April 9, 2020_02.29.csv', guess_max = 10000, skip=3, col_names=names(VV_1.names)) %>%
   mutate(ID=seq_along(StartDate)) %>%
   mutate(ID = as.character(ID))
 
-NN.names <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', n_max=1)
-NN <- read_csv('data/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', guess_max = 10000, skip=3, col_names=names(NN.names)) %>%
+NN.names <- read_csv('data/Survey1/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', n_max=1)
+NN <- read_csv('data/Survey1/Corona Citizens Science Project V0.3_April 9, 2020_02.34.csv', guess_max = 10000, skip=3, col_names=names(NN.names)) %>%
   mutate(ID=seq_along(StartDate)) %>%
   mutate(ID = as.character(ID))
 
 
-rm(VV.names,NN.names)
+rm(VV_1.names,NN.names)
 ```
 
 #Remove Spam and Preview survey answers
@@ -54,15 +54,15 @@ rm(VV.names,NN.names)
 There are 83 answers flagged as Spam, and 80 as Survey preview, with 105761 valid answers left.
 
 ```{r Remove Spam and Preview answers}
-VV <- VV %>%
+VV_1 <- VV_1 %>%
   filter(Status == 'IP Address') # 105761
 NN <- NN %>%
   filter(Status == 0) # 105763
 
 Extras <- NN %>%
-  anti_join(VV, by='ResponseId') # Two late responses in NN, but not in VV
+  anti_join(VV_1, by='ResponseId') # Two late responses in NN, but not in VV_1
 
-JJ <- VV %>%
+JJ <- VV_1 %>%
   inner_join(NN,by=c('ResponseId')) # Need to use ResposneID as the match
 ```
 
@@ -92,22 +92,22 @@ We're going to use only the values file for further analyses.
 ## Q1 Consent to take part
 
 ```{r Consent, results = 'show'}
-kable(table(VV$Q1),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position')
+kable(table(VV_1$Q1),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position')
   
 ```
 
 ## Q66 Do you live in the RoI?
 
 ```{r Residence, results = 'show'}
-kable(table(VV$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position')
+kable(table(VV_1$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position')
   
 ```
 
 We remove respondents who did not consent, do not live in the RoI, or who were aged under 15.
 
 ```{r filter out ineligible responses}
-table(VV$Q3)
-VV <- VV %>%
+table(VV_1$Q3)
+VV_1 <- VV_1 %>%
   filter(Q1 == 'Yes' & Q66 == 'Yes') %>% # 104051
   filter(Q3 >= 15) # 103845 - lose 206 younger people
 ```
@@ -146,7 +146,7 @@ options(tibble.print_max = Inf)
 options(tibble.print_max = 10)
 
 ### The corresponding file from the Survey data
-Weights_Survey <- VV %>% select(ID, Q3,Q4, Q5,Q7) %>%
+Weights_Survey <- VV_1 %>% select(ID, Q3,Q4, Q5,Q7) %>%
   rename(Sex = Q4, Age = Q3, County = Q5, Education = Q7) # Matching variables in the Survey data
 
 rm(EA037)
@@ -198,7 +198,7 @@ Weights_CSO %>% distinct(Age) # 5 Year age groups
 
 #Match ages 
 #Recode age from the survey to match the census groupings
-VV <- VV %>%
+VV_1 <- VV_1 %>%
   mutate(Age_year  = round(Q3)) %>%
   mutate(Age_group = cut(Age_year,
                          breaks=c(14,19,24,29,34,39,44,49,54,
@@ -224,9 +224,9 @@ VV <- VV %>%
                                    "(84,120]" = "85 years and over"))
   
 
-VV %>% distinct(Age_group)
-VV %>% distinct(Age_group_census)
-table(VV$Age_group)
+VV_1 %>% distinct(Age_group)
+VV_1 %>% distinct(Age_group_census)
+table(VV_1$Age_group)
 ```
 
 # County
@@ -280,7 +280,7 @@ Weights_Survey <- Weights_Survey %>%
                   'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
 
 # Then recode the survey data to match the revised census data
-VV <- VV %>%
+VV_1 <- VV_1 %>%
   mutate(County_merge = recode(Q5, 'Carlow' = 'Carlow',
                   'Cavan' = 'Cavan','Clare' = 'Clare','Cork city' = 'Cork City',
                   'Donegal' = 'Donegal','Dublin 1' = 'Dublin','Dublin 10' = 'Dublin',
@@ -304,7 +304,7 @@ VV <- VV %>%
                   'West Cork' = 'Cork County','Westmeath' = 'Westmeath',
                   'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
 
-table(VV$Q5,VV$County_merge)
+table(VV_1$Q5,VV_1$County_merge)
 ```
 
 # Education
@@ -467,17 +467,21 @@ Weights_CSO_matched %>% distinct(Education_Survey)
 
 Weights_Other = Weights_CSO_matched %>%
   filter(!is.na(Sampled)) %>%
-  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  select(Education_Survey, Age_group, County, Sex,
+         Weights, Weights_trimmed) %>%
   group_by(Education_Survey,Age_group,County) %>%
   summarize(Weights = mean(Weights, na.rm=TRUE))  %>%
   ungroup()
+
 Weights_Other %>% distinct(Education_Survey,Age_group,County) # 2082 distinct rows.
 summary(Weights_Other)
 
 Weights_MF = Weights_CSO_matched %>%
   filter(!is.na(Sampled)) %>%
-  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  select(Education_Survey, Age_group, County, Sex,
+         Weights, Weights_trimmed) %>%
   ungroup()
+
 Weights_MF %>% distinct(Education_Survey,Age_group,County,Sex) # 2082 distinct rows.
 summary(Weights_MF)
 
@@ -487,7 +491,7 @@ rm(Weights_CSO_matched)
 So, first we prepare the necessary data frames, and then we link them.
 
 ```{r Link weights to original data - do}
-VV_Other <- VV %>%
+VV_1_Other <- VV_1 %>%
   filter(Q4 == 'Other') %>%
   inner_join(Weights_Other, # Keep all the rows on the RHS
              by = c("Q7" = "Education_Survey",
@@ -495,7 +499,7 @@ VV_Other <- VV %>%
                     "County_merge" = "County")) %>%
   mutate(Weights = ifelse(is.nan(Weights),1,Weights))
 
-VV_MF <- VV  %>%
+VV_1_MF <- VV_1  %>%
   filter(Q4 != 'Other') %>%
   inner_join(Weights_MF, # Keep all the rows on the RHS
              by = c("Q7" = "Education_Survey",
@@ -504,17 +508,44 @@ VV_MF <- VV  %>%
                     "Q4" = "Sex")) %>%
   mutate(Weights = ifelse(is.nan(Weights),1,Weights))
 
-VV <- bind_rows(VV_MF, VV_Other)
+VV_1 <- bind_rows(VV_1_MF, VV_1_Other)
 
 
-rm(Weights_Other, Weights_MF, VV_Other, VV_MF)
+rm(Weights_Other, Weights_MF, VV_1_Other, VV_1_MF)
 ```
 
-Finally we save the survey one data frame.
+Next we rename some variables for the sake of sanity
+
+```{r Selective renaming}
+
+VV_1 <- VV_1 %>%
+  rename(County = County_merge) %>%
+  mutate(Sex = Q4) %>%
+  mutate(Education = Q7) %>%
+  rename(Age  = Age_year)
+```
+Now we look at the weights in the context of the survey data, not the census data.
+
+```{r Review weights linked to data}
+#County
+ggplot(data=VV_1, aes(x = Weights, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+ggplot(data=VV_1, aes(x = Weights_trimmed, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+
+#Education
+ggplot(data=VV_1, aes(x = Weights, y = Education, colour=Sex, group = interaction(Sex,  Education))) + geom_boxplot()
+ggplot(data=VV_1, aes(x = Weights_trimmed, y = Education, colour=Sex, group = interaction(Sex,  Education))) + geom_boxplot()
+
+#Age
+ggplot(data=VV_1, aes(x = Weights, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+ggplot(data=VV_1, aes(x = Weights_trimmed, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+
+```
+
+Finally we save the survey into one data frame.
 
 ```{r save file}
 
-save(VV,file = 'data/Survey_1.rda')
-write_csv(VV,'data/Survey_1.csv')
+save(VV_1,file = 'data/Survey1/Survey_1.rda')
+write_csv(VV_1,'data/Survey1/Survey_1.csv')
 
 ```

@@ -44,13 +44,13 @@ We load the data from the original file, edited as listed above. We add an ID va
 
 ```{r load}
 
-VV.names <- read_xls('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.xls', sheet='Data', col_names=FALSE, n_max=1) # Final Survey 2
-VV.names['...17'][1] = 'Q5_1'
-VV.names['...18'][1] = 'Q6_1'
+VV_2.names <- read_xls('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.xls', sheet='Data', col_names=FALSE, n_max=1) # Final Survey 2
+VV_2.names['...17'][1] = 'Q5_1'
+VV_2.names['...18'][1] = 'Q6_1'
 
 
 
-VV <- read_csv('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.csv', guess_max = 10000, skip=3, col_names=as.character(VV.names)) %>%
+VV_2 <- read_csv('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020_04.28.csv', guess_max = 10000, skip=3, col_names=as.character(VV_2.names)) %>%
   mutate(ID=seq_along(StartDate)) %>%
   mutate(ID = as.character(ID))
 
@@ -60,8 +60,8 @@ VV <- read_csv('data/Survey2/Corona Citizens Science Project V0.4_April 23, 2020
 #  mutate(ID = as.character(ID))
 
 
-#rm(VV.names,NN.names)
-rm(VV.names)
+#rm(VV_2.names,NN.names)
+rm(VV_2.names)
 ```
 
 #Remove Spam and Preview survey answers
@@ -69,17 +69,17 @@ rm(VV.names)
 There are 41 answers flagged as Spam, and 10 as Survey preview, with 105761 valid answers left.
 
 ```{r Remove Spam and Preview answers}
-table(VV$Status)
-VV <- VV %>%
+table(VV_2$Status)
+VV_2 <- VV_2 %>%
   filter(Status == 'IP Address') # 34693
 #table(NN$Status)
 #NN <- NN %>%
 #  filter(Status == 0) # 105763
 
 #Extras <- NN %>%
-#  anti_join(VV, by='ResponseId') # Two late responses in NN, but not in VV
+#  anti_join(VV_2, by='ResponseId') # Two late responses in NN, but not in VV_2
 
-#JJ <- VV %>%
+#JJ <- VV_2 %>%
 #  inner_join(NN,by=c('ResponseId')) # Need to use ResposneID as the match
 ```
 
@@ -109,14 +109,14 @@ We're going to use only the values file for further analyses.
 ## Q1 Consent to take part
 
 ```{r Consent, results = 'show'}
-kable(table(VV$Q1),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 52 refusals
+kable(table(VV_2$Q1),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 52 refusals
   
 ```
 
 ## Q66 Do you live in the RoI?
 
 ```{r Residence, results = 'show'}
-kable(table(VV$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 146 outside RoI
+kable(table(VV_2$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_position') # 146 outside RoI
   
 ```
 
@@ -124,15 +124,15 @@ kable(table(VV$Q66),booktabs = TRUE) %>% kable_styling(latex_options = 'HOLD_pos
 
 
 ```{r check ages}
-VV <- VV %>%
+VV_2 <- VV_2 %>%
   mutate(Age =  recode(Q5,
               'Under 14' = '14',
               'Over 90' = '90'
               )) %>%
   mutate(Age = as.numeric(Age)) # Recode Q5 to Age, a number.
   
-kable(table(VV$Q5))
-kable(table(VV$Q5[VV$Age < 15])) # 45
+kable(table(VV_2$Q5))
+kable(table(VV_2$Q5[VV_2$Age < 15])) # 45
 ```
 
 We remove respondents who did not consent, do not live in the RoI, or who were aged under 15.
@@ -140,7 +140,7 @@ We remove respondents who did not consent, do not live in the RoI, or who were a
 ```{r filter out ineligible responses}
 
 
-VV <- VV %>%
+VV_2 <- VV_2 %>%
   filter(Q1 == 'Yes') %>%
   filter(Q66 == 'Yes') %>%
   filter(Age >= 15) # 33876 - lose 45 younger people
@@ -180,7 +180,7 @@ options(tibble.print_max = Inf)
 options(tibble.print_max = 10)
 
 ### The corresponding file from the Survey data
-Weights_Survey <- VV %>% select(ID, Q6, Age, Q5_1, Q7) %>%
+Weights_Survey <- VV_2 %>% select(ID, Q6, Age, Q5_1, Q7) %>%
   rename(Sex = Q6,  County = Q5_1, Education = Q7) # Matching variables in the Survey data
 
 rm(EA037)
@@ -232,7 +232,7 @@ Weights_CSO %>% distinct(Age) # 5 Year age groups
 
 #Match ages 
 #Recode age from the survey to match the census groupings
-VV <- VV %>%
+VV_2 <- VV_2 %>%
   mutate(Age_year  = round(Age)) %>%
   mutate(Age_group = cut(Age_year,
                          breaks=c(14,19,24,29,34,39,44,49,54,
@@ -258,9 +258,9 @@ VV <- VV %>%
                                    "(84,120]" = "85 years and over"))
   
 
-VV %>% distinct(Age_group)
-VV %>% distinct(Age_group_census)
-table(VV$Age_group)
+VV_2 %>% distinct(Age_group)
+VV_2 %>% distinct(Age_group_census)
+table(VV_2$Age_group)
 ```
 
 # County
@@ -314,7 +314,7 @@ Weights_Survey <- Weights_Survey %>%
                   'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
 
 # Then recode the survey data to match the revised census data
-VV <- VV %>%
+VV_2 <- VV_2 %>%
   mutate(County_merge = recode(Q5_1, 'Carlow' = 'Carlow',
                   'Cavan' = 'Cavan','Clare' = 'Clare','Cork city' = 'Cork City',
                   'Donegal' = 'Donegal','Dublin 1' = 'Dublin','Dublin 10' = 'Dublin',
@@ -338,7 +338,7 @@ VV <- VV %>%
                   'West Cork' = 'Cork County','Westmeath' = 'Westmeath',
                   'Wexford' = 'Wexford','Wicklow' = 'Wicklow'))
 
-table(VV$Q5_1,VV$County_merge)
+table(VV_2$Q5_1,VV_2$County_merge)
 ```
 
 # Education
@@ -501,7 +501,8 @@ Weights_CSO_matched %>% distinct(Education_Survey)
 
 Weights_Other = Weights_CSO_matched %>%
   filter(!is.na(Sampled)) %>%
-  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  select(Education_Survey, Age_group, County, Sex,
+         Weights, Weights_trimmed) %>%
   group_by(Education_Survey,Age_group,County) %>%
   summarize(Weights = mean(Weights, na.rm=TRUE))  %>%
   ungroup()
@@ -510,7 +511,8 @@ summary(Weights_Other)
 
 Weights_MF = Weights_CSO_matched %>%
   filter(!is.na(Sampled)) %>%
-  select(Education_Survey, Age_group, County, Sex, Weights) %>%
+  select(Education_Survey, Age_group, County, Sex,
+         Weights, Weights_trimmed) %>%
   ungroup()
 Weights_MF %>% distinct(Education_Survey,Age_group,County,Sex) # 2082 distinct rows.
 summary(Weights_MF)
@@ -521,7 +523,7 @@ rm(Weights_CSO_matched)
 So, first we prepare the necessary data frames, and then we link them.
 
 ```{r Link weights to original data - do}
-VV_Other <- VV %>%
+VV_2_Other <- VV_2 %>%
   filter(Q6 == 'Other') %>%
   inner_join(Weights_Other, # Keep all the rows on the RHS
              by = c("Q7" = "Education_Survey",
@@ -529,7 +531,7 @@ VV_Other <- VV %>%
                     "County_merge" = "County")) %>%
   mutate(Weights = ifelse(is.nan(Weights),1,Weights))
 
-VV_MF <- VV  %>%
+VV_2_MF <- VV_2  %>%
   filter(Q6 != 'Other') %>%
   inner_join(Weights_MF, # Keep all the rows on the RHS
              by = c("Q7" = "Education_Survey",
@@ -538,17 +540,43 @@ VV_MF <- VV  %>%
                     "Q6" = "Sex")) %>%
   mutate(Weights = ifelse(is.nan(Weights),1,Weights))
 
-VV <- bind_rows(VV_MF, VV_Other)
+VV_2 <- bind_rows(VV_2_MF, VV_2_Other)
 
+rm(Weights_Other, Weights_MF, VV_2_Other, VV_2_MF)
+```
 
-rm(Weights_Other, Weights_MF, VV_Other, VV_MF)
+Next we rename some variables for the sake of sanity
+
+```{r Selective renaming}
+
+VV_2 <- VV_2 %>%
+  rename(County = County_merge) %>%
+  mutate(Sex = Q6) %>%
+  mutate(Education = Q7)
+```
+Now we look at the weights in the context of the survey data, not the census data.
+
+```{r Review weights linked to data}
+#County
+ggplot(data=VV_2, aes(x = Weights, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+ggplot(data=VV_2, aes(x = Weights_trimmed, y = County, colour=Sex, group = interaction(Sex,  County))) + geom_boxplot()
+
+#Education
+ggplot(data=VV_2, aes(x = Weights, y = Education, colour=Sex, group = interaction(Sex,  Education))) + geom_boxplot()
+ggplot(data=VV_2, aes(x = Weights_trimmed, y = Education, colour=Sex, group = interaction(Sex,  Education))) + geom_boxplot()
+
+#Age
+ggplot(data=VV_2, aes(x = Weights, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+ggplot(data=VV_2, aes(x = Weights_trimmed, y = Age_group, colour=Sex, group = interaction(Sex,  Age_group))) + geom_boxplot()
+
 ```
 
 Finally we save the survey two data frame.
 
 ```{r save file}
 
-save(VV,file = 'data/Survey2/Survey_2.rda')
-write_csv(VV,'data/Survey_2.csv')
+save(VV_2,file = 'data/Survey2/Survey_2.rda')
+write_csv(VV_2,'data/Survey_2.csv')
+
 
 ```
