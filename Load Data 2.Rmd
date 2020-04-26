@@ -576,7 +576,7 @@ Finally we save the survey two data frame.
 ```{r save file}
 
 save(VV_2,file = 'data/Survey2/Survey_2.rda')
-write_csv(VV_2,'data/Survey_2.csv')
+write_csv(VV_2,'data/Survey2/Survey_2.csv')
 
 
 ```
