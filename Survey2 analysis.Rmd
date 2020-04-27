@@ -102,8 +102,8 @@ The sample covers the country widely, but is dominated by people from Dublin.
 ## Q6 Broadband access
 
 ```{r Broadband}
-table(VV_2$Q6)
-VV_2$Broadband <- recode(VV_2$Q6,
+table(VV_2$Q6_1)
+VV_2$Broadband <- recode(VV_2$Q6_1,
                  'Dial-up telephone line (analogue, ISDN)' = 'Dial-up',
                  "Don’t know" = "Not known") # Lose the ’
 table(VV_2$Broadband)
@@ -120,7 +120,7 @@ g
 
 ```
 
-The large majority of respondents have access to broadband internet, but small number used a dialup connection, and many used their mobile phone.
+The large majority of respondents have access to broadband internet, but small number used a dial-up connection, and many used their mobile phone.
 
 ## Q7 Education
 
@@ -206,7 +206,7 @@ g
 A small proportion, just over 10%, of our respondents live alone. Weighting modestly increases this
 
 ## Q83-86 Household composition
-Omit for the momemt
+Omit for the moment
 
 ```{r Household composition, eval=FALSE}
 # 4 groups Adults > 70, Adults 18-70, Children 12-17, Children < 12 or All missing
@@ -814,16 +814,330 @@ g
 
 # Schooling and related matters
 
-### Q26 Primary School
+### Q89 Primary School
+Q89	What were the biggest obstacles in relation to the school work of your primary school child(ren)? (multiple answers possible)
 
-### Q28 Lower secondary 
+```{r Q89 Primary}
+
+sort(unique(VV_2$Q89))[!str_detect(sort(unique(VV_2$Q89)),",")] # Components of answer
+
+VV_2 <- VV_2 %>%
+  mutate(Q89a = str_replace_all(Q89,
+                  c("Lack of clarity about what I had to do as a parent" = "1",
+                    "Motivation of child\\(ren\\)" = "2",
+                    "My other children" = "3",
+                    "My work at home \\(working from home\\)" = "4",
+                    "My work outside of home" = "5",
+                    "No obstacles" = "6",
+                    "Resources \\(Laptop, access to computer, internet…\\)" = "7",
+                    "Other" = "8",
+                    .default = NA_character_)
+                  ))
+
+sort(unique(VV_2$Q89a))[str_detect(sort(unique(VV_2$Q89a)),",")] # Components of answer
+
+                         
+table(VV_2$Q89a, useNA = 'ifany')
+
+VV_2 <- VV_2 %>%
+  mutate(Q89a_1 = str_detect(Q89a,'1')) %>%
+  mutate(Q89a_2 = str_detect(Q89a,'2')) %>%
+  mutate(Q89a_3 = str_detect(Q89a,'3')) %>%
+  mutate(Q89a_4 = str_detect(Q89a,'4')) %>%
+  mutate(Q89a_5 = str_detect(Q89a,'5')) %>%
+  mutate(Q89a_6 = str_detect(Q89a,'6')) %>%
+  mutate(Q89a_7 = str_detect(Q89a,'7')) %>%
+  mutate(Q89a_8 = str_detect(Q89a,'8')) %>%
+  mutate_if(is.logical,as.numeric)
+  
+
+table(VV_2$Q89a_1)
+table(VV_2$Q89a_2)
+table(VV_2$Q89a_3)
+table(VV_2$Q89a_4)
+table(VV_2$Q89a_5)
+table(VV_2$Q89a_6)
+table(VV_2$Q89a_7)
+table(VV_2$Q89a_8)
+table(VV_2$Q89a,VV_2$Q89a_2)
+
+Motivation_P <- VV_2 %>%
+  select(ResponseId,Q89a_1,Q89a_2,Q89a_3,Q89a_4,
+         Q89a_5,Q89a_6,Q89a_7,Q89a_8) %>%
+  rename('Clarity' = Q89a_1, 'Motivation' = Q89a_2,
+         'Other Children' = Q89a_3, 'Work at home' = Q89a_4,
+         'Work away' = Q89a_5, 'None' = Q89a_6,
+         'Resources' = Q89a_7, 'Other' = Q89a_8) %>%
+  pivot_longer(-ResponseId, names_to='Obstacle', values_to='Count') %>%
+  mutate(Count = as.numeric(Count)) %>%
+  mutate_all(~replace(., is.na(.), 0))
+
+Motivation_P_ResponseId <- Motivation_P %>% group_by(ResponseId) %>%
+  summarise(N=sum(Count))
+Motivation_P_ResponseId %>% group_by(N) %>% summarise(Sum = sum(N))
+
+g <- ggplot(Motivation_P_ResponseId, aes(x=N)) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of obstacles') + ylab('Count') +
+  scale_x_continuous(breaks=c(0,1,2,3,4,5,6,7)) +
+  ggtitle('Reported obstacles for school work',
+          subtitle='Primary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Primary_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+Motivation_P_Obstacle <- Motivation_P %>% group_by(Obstacle) %>%
+  summarise(Count=sum(Count)) %>%
+  mutate(Obstacle = as_factor(Obstacle)) %>%
+  mutate(Obstacle = fct_relevel(Obstacle, 'Motivation', 'Work at home',
+                            'Other Children', 'Clarity', 'Resources',
+                            'None', 'Work away', 'Other'))
+  
+
+g <- ggplot(Motivation_P_Obstacle, aes(x=Obstacle, y=Count)) +
+  geom_col(fill='yellow',colour='black') +
+  xlab('Obstacles') + ylab('Count') +
+ ggtitle('Reported obstacles for school work',
+          subtitle='Primary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Primary_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+rm(Motivation_P_Obstacle, Motivation_P_ResponseId)
+
+```
+
+### Q91 Lower secondary 
+Q91	What were the biggest obstacles in relation to the school work of your child(ren) under 15 in secondary school? (multiple answers possible)
+
+```{r Q91 Lower secondary}
+
+sort(unique(VV_2$Q91))[!str_detect(sort(unique(VV_2$Q91)),",")] # Components of answer
+
+VV_2 <- VV_2 %>%
+  mutate(Q91a = str_replace_all(Q91,
+                  c("Lack of clarity about what I had to do as a parent" = "1",
+                    "Motivation of child\\(ren\\)" = "2",
+                    "My other children" = "3",
+                    "My work at home \\(working from home\\)" = "4",
+                    "My work outside of home" = "5",
+                    "No obstacles" = "6",
+                    "Resources \\(Laptop, access to computer, internet…\\)" = "7",
+                    "Other" = "8",
+                    .default = NA_character_)
+                  ))
+
+sort(unique(VV_2$Q91a))[str_detect(sort(unique(VV_2$Q91a)),",")] # Components of answer
+
+                         
+table(VV_2$Q91a, useNA = 'ifany')
+
+VV_2 <- VV_2 %>%
+  mutate(Q91a_1 = str_detect(Q91a,'1')) %>%
+  mutate(Q91a_2 = str_detect(Q91a,'2')) %>%
+  mutate(Q91a_3 = str_detect(Q91a,'3')) %>%
+  mutate(Q91a_4 = str_detect(Q91a,'4')) %>%
+  mutate(Q91a_5 = str_detect(Q91a,'5')) %>%
+  mutate(Q91a_6 = str_detect(Q91a,'6')) %>%
+  mutate(Q91a_7 = str_detect(Q91a,'7')) %>%
+  mutate(Q91a_8 = str_detect(Q91a,'8')) %>%
+  mutate_if(is.logical,as.numeric)
+  
+
+table(VV_2$Q91a_1)
+table(VV_2$Q91a_2)
+table(VV_2$Q91a_3)
+table(VV_2$Q91a_4)
+table(VV_2$Q91a_5)
+table(VV_2$Q91a_6)
+table(VV_2$Q91a_7)
+table(VV_2$Q91a_8)
+table(VV_2$Q91a,VV_2$Q91a_2)
+
+Motivation_L <- VV_2 %>%
+  select(ResponseId,Q91a_1,Q91a_2,Q91a_3,Q91a_4,
+         Q91a_5,Q91a_6,Q91a_7,Q91a_8) %>%
+  rename('Clarity' = Q91a_1, 'Motivation' = Q91a_2,
+         'Other Children' = Q91a_3, 'Work at home' = Q91a_4,
+         'Work away' = Q91a_5, 'None' = Q91a_6,
+         'Resources' = Q91a_7, 'Other' = Q91a_8) %>%
+  pivot_longer(-ResponseId, names_to='Obstacle', values_to='Count') %>%
+  mutate(Count = as.numeric(Count)) %>%
+  mutate_all(~replace(., is.na(.), 0))
+
+Motivation_L_ResponseId <- Motivation_L %>% group_by(ResponseId) %>%
+  summarise(N=sum(Count))
+Motivation_L_ResponseId %>% group_by(N) %>% summarise(Sum = sum(N))
+
+g <- ggplot(Motivation_L_ResponseId, aes(x=N)) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of obstacles') + ylab('Count') +
+  scale_x_continuous(breaks=c(0,1,2,3,4,5,6,7)) +
+  ggtitle('Reported obstacles for school work',
+          subtitle='Lower secondary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Lower_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+Motivation_L_Obstacle <- Motivation_L %>% group_by(Obstacle) %>%
+  summarise(Count=sum(Count)) %>%
+  mutate(Obstacle = as_factor(Obstacle)) %>%
+  mutate(Obstacle = fct_relevel(Obstacle, 'Motivation', 'Work at home',
+                            'Other Children', 'Clarity', 'Resources',
+                            'None', 'Work away', 'Other'))
+  
+
+g <- ggplot(Motivation_L_Obstacle, aes(x=Obstacle, y=Count)) +
+  geom_col(fill='yellow',colour='black') +
+  xlab('Obstacles') + ylab('Count') +
+ ggtitle('Reported obstacles for school work',
+          subtitle='Lower secondary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Lower_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+rm(Motivation_L_Obstacle, Motivation_L_ResponseId)
+```
 
 ### Q30 Upper secondary 
-Q29 If you or your child is IN SECONDARY SCHOOL and between 15 and 17 years of age, did you or your child manage to continue the curriculum?
-Q30 Did you encounter any practical problems with the work sent from school?
+Q93	What were the biggest obstacles in relation to the school work of your child(ren) over the age of 15 in secondary school? (multiple answers possible)
+
+```{r Q93 Upper secondary}
+
+sort(unique(VV_2$Q93))[!str_detect(sort(unique(VV_2$Q93)),",")] # Components of answer
+
+VV_2 <- VV_2 %>%
+  mutate(Q93a = str_replace_all(Q93,
+                  c("Lack of clarity about what I had to do as a parent" = "1",
+                    "Motivation of child\\(ren\\)" = "2",
+                    "My other children" = "3",
+                    "My work at home \\(working from home\\)" = "4",
+                    "My work outside of home" = "5",
+                    "No obstacles" = "6",
+                    "Resources \\(Laptop, access to computer, internet…\\)" = "7",
+                    "Other" = "8",
+                    .default = NA_character_)
+                  ))
+
+sort(unique(VV_2$Q93a))[str_detect(sort(unique(VV_2$Q93a)),",")] # Components of answer
+
+                         
+table(VV_2$Q93a, useNA = 'ifany')
+
+VV_2 <- VV_2 %>%
+  mutate(Q93a_1 = str_detect(Q93a,'1')) %>%
+  mutate(Q93a_2 = str_detect(Q93a,'2')) %>%
+  mutate(Q93a_3 = str_detect(Q93a,'3')) %>%
+  mutate(Q93a_4 = str_detect(Q93a,'4')) %>%
+  mutate(Q93a_5 = str_detect(Q93a,'5')) %>%
+  mutate(Q93a_6 = str_detect(Q93a,'6')) %>%
+  mutate(Q93a_7 = str_detect(Q93a,'7')) %>%
+  mutate(Q93a_8 = str_detect(Q93a,'8')) %>%
+  mutate_if(is.logical,as.numeric)
+  
+
+table(VV_2$Q93a_1)
+table(VV_2$Q93a_2)
+table(VV_2$Q93a_3)
+table(VV_2$Q93a_4)
+table(VV_2$Q93a_5)
+table(VV_2$Q93a_6)
+table(VV_2$Q93a_7)
+table(VV_2$Q93a_8)
+table(VV_2$Q93a,VV_2$Q93a_2)
+
+Motivation_U <- VV_2 %>%
+  select(ResponseId,Q93a_1,Q93a_2,Q93a_3,Q93a_4,
+         Q93a_5,Q93a_6,Q93a_7,Q93a_8) %>%
+  rename('Clarity' = Q93a_1, 'Motivation' = Q93a_2,
+         'Other Children' = Q93a_3, 'Work at home' = Q93a_4,
+         'Work away' = Q93a_5, 'None' = Q93a_6,
+         'Resources' = Q93a_7, 'Other' = Q93a_8) %>%
+  pivot_longer(-ResponseId, names_to='Obstacle', values_to='Count') %>%
+  mutate(Count = as.numeric(Count)) %>%
+  mutate_all(~replace(., is.na(.), 0))
+
+Motivation_U_ResponseId <- Motivation_U %>% group_by(ResponseId) %>%
+  summarise(N=sum(Count))
+Motivation_U_ResponseId %>% group_by(N) %>% summarise(Sum = sum(N))
+
+g <- ggplot(Motivation_U_ResponseId, aes(x=N)) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of obstacles') + ylab('Count') +
+  scale_x_continuous(breaks=c(0,1,2,3,4,5,6,7)) +
+  ggtitle('Reported obstacles for school work',
+          subtitle='Primary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Upper_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+Motivation_U_Obstacle <- Motivation_U %>% group_by(Obstacle) %>%
+  summarise(Count=sum(Count)) %>%
+  mutate(Obstacle = as_factor(Obstacle)) %>%
+  mutate(Obstacle = fct_relevel(Obstacle, 'Motivation', 'Work at home',
+                            'Other Children', 'Clarity', 'Resources',
+                            'None', 'Work away', 'Other'))
+  
+
+g <- ggplot(Motivation_U_Obstacle, aes(x=Obstacle, y=Count)) +
+  geom_col(fill='yellow',colour='black') +
+  xlab('Obstacles') + ylab('Count') +
+ ggtitle('Reported obstacles for school work',
+          subtitle='Upper secondary school') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Obstacles_Upper__totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+rm(Motivation_U_Obstacle, Motivation_U_ResponseId)
+```
+
+## Pooled curriculum problems
+
+```{r Pooled schooling problems}
+
+Motivation_P <- Motivation_P %>% mutate(School = 'Primary')
+Motivation_L <- Motivation_L %>% mutate(School = 'Lower secondary')
+Motivation_U <- Motivation_U %>% mutate(School = 'Upper secondary')
+
+Motivation = rbind(Motivation_P, Motivation_L, Motivation_U)
+
+Motivation_Obstacle <- Motivation %>% group_by(School,Obstacle) %>%
+  summarise(Count=sum(Count)) %>%
+  ungroup() %>%
+  mutate(Obstacle = as_factor(Obstacle)) %>%
+  mutate(Obstacle = fct_relevel(Obstacle, 'Motivation', 'Work at home',
+                            'Other Children', 'Clarity', 'Resources',
+                            'None', 'Work away', 'Other')) %>%
+  mutate(School = as_factor(School)) %>%
+  mutate(School = fct_relevel(School, "Primary",
+                              "Lower secondary","Upper secondary"))
+  
+
+g <- ggplot(Motivation_Obstacle, aes(x=Obstacle, y=Count)) +
+  geom_col(fill='yellow',colour='black') +
+  xlab('Obstacles') + ylab('Count') +
+ ggtitle('Reported obstacles for school work',
+          subtitle='By school type') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0)) +
+  theme(strip.text = element_text(size=15)) +
+  coord_flip() +
+  facet_wrap(~School)
+g
+##ggsave('images/Obstacles_Upper__totals.png',  g, width=10,height=7, units='in', dpi= 1200)
 
 
-### Pooled curriculum problems
+rm(Motivation,Motivation_P, Motivation_L, Motivation_U, Motivation_Obstacle)
+
+```
+
+Maintaining the motivation of their children was a significant problem for the parents of children in all three age groups. The proportion reporting no problems rose with older children. Working at home was reported as much more of an obstacle with younger children.
 
 ## Q25 Q27 Q29 Continuing the curriculum
 
@@ -864,7 +1178,7 @@ VV_2 %>% select(Q95) %>%
   filter(!is.na(Q95)) %>%
   group_by(Q95) %>%
   summarise(N = n()) %>%
-  mutate(Pct = round(100*N/sum(N),2)) %>% kable(caption = "Have you extra caring responsibilites now?")
+  mutate(Pct = round(100*N/sum(N),2)) %>% kable(caption = "Have you extra caring responsibilities now?")
 
 ```
 
@@ -1181,7 +1495,7 @@ g
 
 ```
 
-Far fewer were waiting for a test. Most of those tested were waiting, either for a test, or for the results of a test. Of the 207 test results that had come back 37% were positive, slightly higehr than two weeks ago.
+Far fewer were waiting for a test. Most of those tested were waiting, either for a test, or for the results of a test. Of the 207 test results that had come back 37% were positive, slightly higher than two weeks ago.
 
 # Behaviours
 
@@ -1469,7 +1783,7 @@ g
 
 ```
 
-By far the most common response was to report no problems. Of those who did report a problems, few had more than 2, and most had only 1. The commonest problems reported were high blood pressure, asthma, and (surprisingly) immunodeficiency. This was reportedly commoner than heart disease, diabetes, respiratory disease and a recent diagnosis of any cancer. This is unlikely to be correct, and shows a considerable gap between the lay undertandings of the word immunodeficiency and the professional. Otherwise the pattern of symptom is as expected.
+By far the most common response was to report no problems. Of those who did report a problems, few had more than 2, and most had only 1. The commonest problems reported were high blood pressure, asthma, and (surprisingly) immunodeficiency. This was reportedly commoner than heart disease, diabetes, respiratory disease and a recent diagnosis of any cancer. This is unlikely to be correct, and shows a considerable gap between the lay understandings of the word immunodeficiency and the professional. Otherwise the pattern of symptom is as expected.
 There is no strong link between reported age, and the number of problems reported.
 
 ## Q49 Relational tensions
@@ -1794,7 +2108,9 @@ g
 
 
 
-# Q98 Care postponed
+# Care postponed
+
+## Q98 Waiting for care
 
 Code responses to Q98 'What kind of treatment or check-up do you need or are you waiting for?'
 
@@ -1864,6 +2180,7 @@ g
 
 ```
 
+## Q98 Details
 Manually code further detailed responses given by 1402 participants to 'What kind of treatment or check-up do you need or are you waiting for?'
 
 ```{r Recode text responses}
@@ -1922,7 +2239,7 @@ Lock_Down <- Lock_Down %>%
                                "Open shops, pubs"))
 g <- ggplot(Lock_Down, aes(y=Measure,x = Rank)) +
   geom_boxplot(fill='yellow', colour='black') +
-  ggtitle('Preferences for moving out of lockdown') +
+  ggtitle('Preferences for moving out of lock-down') +
   theme_classic(base_size = 25) +
   theme(axis.text.x = element_text(angle=-90, hjust=0))
 
@@ -1932,7 +2249,7 @@ g
 g <- ggplot(Lock_Down, aes(y=Measure,x = Rank, )) +
   geom_boxplot(fill='yellow',colour='black') +
   facet_wrap(~Sex) +
-  ggtitle('Preferences for moving out of lockdown', subtitle='by Sex') +
+  ggtitle('Preferences for moving out of lock down', subtitle='by Sex') +
   theme_classic(base_size = 25) +
   theme(axis.text.x = element_text(angle=-90, hjust=0))
 g
@@ -1949,14 +2266,14 @@ anova(model)
 
 g <- plot_model(model)
 g <- g +
-  ggtitle('Preferences for moving out of lockdown', subtitle='Effect on ranking') +
+  ggtitle('Preferences for moving out of lock down', subtitle='Effect on ranking') +
   ylab('Estimates from regression model') +
   xlab('Model terms') +
   theme_classic(base_size = 20) 
 g
 g2 <- plot_model(model,type='int')
 g2 <- g2 +
-  ggtitle('Preferences for moving out of lockdown', subtitle='Effect on ranking') +
+  ggtitle('Preferences for moving out of lock down', subtitle='Effect on ranking') +
   ylab('Rank estimates from regression model') +
   xlab('Model terms') +
   scale_y_continuous(trans = "reverse") +
