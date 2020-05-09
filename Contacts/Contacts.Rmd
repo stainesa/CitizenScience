@@ -1,0 +1,84 @@
+---
+title: "Contacts"
+author: "Anthony Staines"
+date: "08/04/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load files
+
+
+
+```{r load}
+Ca <- read_csv('contacts-2.csv', guess_max = 5000)%>%
+  select("Name","E-mail 1 - Value") %>%
+  rename("Email" = "E-mail 1 - Value") 
+Cb <- read_csv('contacts-3.csv', guess_max = 5000)%>%
+  select("Name","E-mail 1 - Value") %>%
+  rename("Email" = "E-mail 1 - Value")
+
+```
+
+## Process files
+
+```{r select desired email .ie but not dcu.ie}
+Ca <- Ca %>%
+  filter(str_detect(Email,'\\.ie$'))
+Cb <- Cb %>%
+  filter(str_detect(Email,'\\.ie$'))
+C <- rbind(Ca,Cb) %>%
+  distinct() %>%
+  filter(!str_detect(Email,'dcu\\.ie$'))
+
+write_csv(C,'C.csv')
+  
+```
+
+
+```{r Test mail}
+
+library(mailR)
+send.mail(from="anthony.staines@gmail.com",
+to="anthony.staines@dcu.ie",
+subject="Test Email",
+body="PFA the desired document",
+html=T,
+smtp=list(host.name = "smtp.gmail.com",
+port = 465,
+user.name = "anthony.staines@gmail.com",
+passwd = "The Visual Display of Quantitative Information TUFTE",
+ssl = T),
+authenticate=T,send=T)
+```
+
+```{r}
+library(emayili)
+library(magrittr)
+
+email <- envelope()
+email <- email %>%
+  from("anthony.staines@gmail.com") %>%
+  to("anthony.staines@dcu.ie") %>%
+  cc("anthony.staines@gmail.com")
+
+email <- email %>% subject("This is a plain test message!")
+
+
+email <- email %>% text("Hello!")
+
+
+#email <- email %>% attachment("image.jpg")
+
+smtp <- server(host = "smtp.gmail.com",
+               port = 465,
+               username = "anthony.staines@gmail.com",
+               password = "The Visual Display of Quantitative Information TUFTE")
+smtp(email, verbose = TRUE)
+```
