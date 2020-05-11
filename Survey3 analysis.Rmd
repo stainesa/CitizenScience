@@ -66,6 +66,12 @@ g
 
 This is an older sample, with a median age of 46, and a very wide (self-reported) age range.
 
+```{r AgeGroup}
+
+VV_3 <- VV_3 %>%
+  mutate(AgeGroup = cut(Age,breaks=c(0,30,40,50,60,70, 100)))
+
+```
 ## Q4 Gender
 
 ```{r Gender}
@@ -2412,6 +2418,171 @@ g2 <- g2 +
 #  scale_y_continuous(trans = "reverse") +
   theme_classic(base_size = 20) 
 g2
+```
+
+## Q118
+```{r Q118}
+table(VV_3$Q118)
+
+VV_3 <- VV_3 %>% 
+  mutate(AnxietyLevel = recode(Q118,
+                               "Less anxious or worried (more content)" = "1",
+                               "More or less the same as before the outbreak" = "2",
+                               "More anxious or worried than usual" = "3",
+                               "Much more anxious or worried than usual" = "4"))
+
+```
+
+
+## Q119
+If you have felt more or much more anxious or worried since the COVID-19 outbreak, is this because of {List of 9 worries}
+
+```{r Q119}
+#table(VV_3$Q119)
+
+sort(unique(VV_3$Q119))[!str_detect(sort(unique(VV_3$Q119)),",")] # Components of answer
+
+VV_3 <- VV_3 %>%
+  mutate(Q119a = str_replace_all(Q119,
+                       c("Business/work related worries" = "1",
+                         "Caring for family members or others" = "2",
+                         "Challenges with children and their school work" = "3",
+                         "Challenges with working from home" = "4",
+                         "Worries about my family members/me catching the virus" = "5",
+                         "Worries about other health problems of my family members/me" = "6",
+                         "Worries about the relaxation of restrictions" = "7",
+                         "Financial challenges" = "8",
+                         "Other" = "9",
+                         .default = NA_character_)))
+table(VV_3$Q119a, useNA = 'ifany')
+
+VV_3 <- VV_3 %>%
+  mutate(Q119a_1 = str_detect(Q119a,'1')) %>%
+  mutate(Q119a_2 = str_detect(Q119a,'2')) %>%
+  mutate(Q119a_3 = str_detect(Q119a,'3')) %>%
+  mutate(Q119a_4 = str_detect(Q119a,'4')) %>%
+  mutate(Q119a_5 = str_detect(Q119a,'5')) %>%
+  mutate(Q119a_6 = str_detect(Q119a,'6')) %>%
+  mutate(Q119a_7 = str_detect(Q119a,'7')) %>%
+  mutate(Q119a_8 = str_detect(Q119a,'8')) %>%
+  mutate(Q119a_9 = str_detect(Q119a,'9'))
+
+table(VV_3$Q119a_1)
+table(VV_3$Q119a_2)
+table(VV_3$Q119a_3)
+table(VV_3$Q119a_4)
+table(VV_3$Q119a_5)
+table(VV_3$Q119a_6)
+table(VV_3$Q119a_7)
+table(VV_3$Q119a_8)
+table(VV_3$Q119a_9)
+
+table(VV_3$Q119a,VV_3$Q119a_2)
+
+Anxiety <- VV_3 %>%
+  select(ResponseId,Sex,AgeGroup, AnxietyLevel, Q119a_1,Q119a_2,Q119a_3,Q119a_4,Q119a_5,Q119a_6,Q119a_7,Q119a_8,Q119a_9) %>%
+#"Business/work related worries" = "1",
+#"Caring for family members or others" = "2",
+#"Challenges with children and their school work" = "3",
+#"Challenges with working from home" = "4",
+#"Worries about my family members/me catching the virus" = "5",
+#"Worries about other health problems of my family members/me" = "6",
+#"Worries about the relaxation of restrictions" = "7",
+#"Financial challenges" = "8",
+#"Other" = "9",
+  rename('Work' = Q119a_1, 'Caring' = Q119a_2,
+         'Children' = Q119a_3, 'Work at home' = Q119a_4,
+         'COVID19' = Q119a_5, 'Other health' = Q119a_6,
+         'End of lock-down' = Q119a_7, 'Money' = Q119a_8,
+         'Other' = Q119a_9)%>%
+  pivot_longer(-c(ResponseId,AgeGroup,Sex,AnxietyLevel), names_to='Source', values_to='Count') %>%
+  mutate(Count = as.numeric(Count)) %>%
+  filter(!is.na(Count))
+
+
+Anxiety_ResponseId <- Anxiety %>% group_by(ResponseId) %>%
+  summarise(N=sum(Count))
+
+
+g <- ggplot(Anxiety_ResponseId, aes(x=N)) +
+  geom_bar(fill='yellow',colour='black') +
+  xlab('Number of anxieties reported') + ylab('Count') +
+  ggtitle('Reported anxieties') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Anxiety sources_by_person.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+Anxiety_Source <- Anxiety %>% group_by(Source) %>%
+  summarise(N=sum(Count)) %>%
+  arrange(desc(N))
+
+g <- ggplot(Anxiety_Source, aes(x=fct_inorder(Source), y=N)) +
+  geom_col(fill='yellow',colour='black') +
+  xlab('Anxiety') + ylab('Count') +
+  ggtitle('Number of people reporting each Anxiety') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Activites_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+Anxiety_Source2 <- Anxiety %>% group_by(AgeGroup,Source) %>%
+  summarise(N=sum(Count)) %>%
+  arrange(desc(N))
+
+g <- ggplot(Anxiety_Source2, aes(x=fct_inorder(Source), y=N, fill=AgeGroup)) +
+  geom_col(colour='black') +
+  xlab('Anxiety') + ylab('Count') +
+  ggtitle('Number of people reporting each Anxiety') +
+  theme_classic(base_size = 25) +
+  theme(axis.text.x = element_text(angle=-45, hjust=0))
+g
+##ggsave('images/Activites_totals.png',  g, width=10,height=7, units='in', dpi= 1200)
+
+```
+
+```{r Q119 and age group}
+table(Anxiety$AgeGroup, Anxiety$Source)
+
+#'Work' = Q119a_1 Similar level of concern to 30+
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_1))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_1))
+
+#'Caring' = Q119a_2, Lower level of concern than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_2))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_2))
+
+#'Children' = Q119a_3 Much lower concern than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_3))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_3))
+
+#'Work at home' = Q119a_4, Higher than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_4))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_4))
+
+#'COVID19' = Q119a_5
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_5))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_5))
+
+#'Other health' = Q119a_6, Lower than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_6))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_6))
+
+#'End of lockdown' = Q119a_7 Markedly higher than others - nearly half
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_7))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_7))
+
+#'Money' = Q119a_8 Higher than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_8))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_8))
+
+#'Other' = Q119a_9, Much higher than others
+chisq.test(table(VV_3$AgeGroup,VV_3$Q119a_9))
+rprop(table(VV_3$AgeGroup,VV_3$Q119a_9))
+
+
+
+
 ```
 
 # Save new file
