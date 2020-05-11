@@ -1,0 +1,209 @@
+---
+title: "FM104"
+author: "Anthony Staines"
+date: "11/05/2020"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+# Setup
+```{r setup, include=FALSE}
+library(knitr)
+library(kableExtra)
+library(readxl)
+library(questionr)
+library(gmodels)
+library(sjPlot)
+library(tidyverse)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = "hide",
+                      cache=TRUE, fig.width=7.5, fig.height=6, dpi=600)
+```
+
+
+# Five questions
+* Younger and older people and anxiety
+* Why the difference? Factors driving this
+* Advice targeted at older people. Do younger people need targeted advice?
+* Reception of Phase 1
+* Use of App
+
+
+```{r Load data}
+load('data/Survey3/Survey_3.rda')
+# Dataframe is called VV_3, contains eligible responses and survey weights.
+
+VV_3$weight = 1 # Unweighted
+#VV_3$weight = VV_3$Weights # Weighted
+
+```
+
+# Younger and older people and anxiety
+```{r Anxiety Level}
+VV_3 <- VV_3 %>%
+mutate(AnxietyLevel = recode(Q118,
+                             "Less anxious or worried (more content)" = "1",
+                             "More or less the same as before the outbreak" = "2",
+                             "More anxious or worried than usual" = "3",
+                             "Much more anxious or worried than usual" = "4")
+       )
+```
+
+```{r age groups}
+
+plot(density(VV_3$Age))
+VV_3 <- VV_3 %>%
+  mutate(AgeGroup2 = cut(Age,breaks=c(0,30,40,60,100)))
+
+table(VV_3$AgeGroup2,VV_3$Age)
+
+table(VV_3$Q118,VV_3$AgeGroup2)
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q118))
+prop_table(table(VV_3$AgeGroup2,VV_3$Q118))
+cprop(table(VV_3$AgeGroup2,VV_3$Q118))
+rprop(table(VV_3$AgeGroup2,VV_3$Q118))
+
+
+chisq.test(table(VV_3$Q118,VV_3$AgeGroup2))
+
+
+```
+
+People under 30 much more likely to report being more anxious or much more anxious than usual.
+
+```{r Q119}
+table(VV_3$Q119)
+
+sort(unique(VV_3$Q119))[!str_detect(sort(unique(VV_3$Q119)),",")] # Components of answer
+
+VV_3 <- VV_3 %>%
+  mutate(Q119a = str_replace_all(Q119,
+                       c("Business/work related worries" = "1",
+                         "Caring for family members or others" = "2",
+                         "Challenges with children and their school work" = "3",
+                         "Challenges with working from home" = "4",
+                         "Worries about my family members/me catching the virus" = "5",
+                         "Worries about other health problems of my family members/me" = "6",
+                         "Worries about the relaxation of restrictions" = "7",
+                         "Financial challenges" = "8",
+                         "Other" = "9",
+                         .default = NA_character_)))
+table(VV_3$Q119a, useNA = 'ifany')
+
+VV_3 <- VV_3 %>%
+  mutate(Q119a_1 = str_detect(Q119a,'1')) %>%
+  mutate(Q119a_2 = str_detect(Q119a,'2')) %>%
+  mutate(Q119a_3 = str_detect(Q119a,'3')) %>%
+  mutate(Q119a_4 = str_detect(Q119a,'4')) %>%
+  mutate(Q119a_5 = str_detect(Q119a,'5')) %>%
+  mutate(Q119a_6 = str_detect(Q119a,'6')) %>%
+  mutate(Q119a_7 = str_detect(Q119a,'7')) %>%
+  mutate(Q119a_8 = str_detect(Q119a,'8')) %>%
+  mutate(Q119a_9 = str_detect(Q119a,'9'))
+
+table(VV_3$Q119a_1)
+table(VV_3$Q119a_2)
+table(VV_3$Q119a_3)
+table(VV_3$Q119a_4)
+table(VV_3$Q119a_5)
+table(VV_3$Q119a_6)
+table(VV_3$Q119a_7)
+table(VV_3$Q119a_8)
+table(VV_3$Q119a_9)
+
+table(VV_3$Q119a,VV_3$Q119a_2)
+
+Anxiety <- VV_3 %>%
+  select(ResponseId,Sex,AgeGroup2, AnxietyLevel, Q119a_1,Q119a_2,Q119a_3,Q119a_4,Q119a_5,Q119a_6,Q119a_7,Q119a_8,Q119a_9) %>%
+#"Business/work related worries" = "1",
+#"Caring for family members or others" = "2",
+#"Challenges with children and their school work" = "3",
+#"Challenges with working from home" = "4",
+#"Worries about my family members/me catching the virus" = "5",
+#"Worries about other health problems of my family members/me" = "6",
+#"Worries about the relaxation of restrictions" = "7",
+#"Financial challenges" = "8",
+#"Other" = "9",
+  rename('Work' = Q119a_1, 'Caring' = Q119a_2,
+         'Children' = Q119a_3, 'Work at home' = Q119a_4,
+         'COVID19' = Q119a_5, 'Other health' = Q119a_6,
+         'End of lock-down' = Q119a_7, 'Money' = Q119a_8,
+         'Other' = Q119a_9)%>%
+  pivot_longer(-c(ResponseId,AgeGroup2,Sex,AnxietyLevel), names_to='Type', values_to='Count') %>%
+  mutate(Count = as.numeric(Count)) %>%
+  filter(!is.na(Count))
+
+Anxiety %>% group_by(Count) %>% summarise(Sum = sum(Count))
+Anxiety %>% group_by(ResponseId,AgeGroup2) %>% summarise(Sum = sum(Count)) %>% arrange(AgeGroup2,desc(Sum))
+
+table(Anxiety$AgeGroup2, Anxiety$Type)
+
+#'Work' = Q119a_1 Similar level of concern to 30+
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_1))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_1))
+
+#'Caring' = Q119a_2, Lower level of concern than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_2))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_2))
+
+#'Children' = Q119a_3 Much lower concern than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_3))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_3))
+
+#'Work at home' = Q119a_4, Higher than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_4))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_4))
+
+#'COVID19' = Q119a_5
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_5))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_5))
+
+#'Other health' = Q119a_6, Lower than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_6))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_6))
+
+#'End of lockdown' = Q119a_7 Markedly higher than others - nearly half
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_7))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_7))
+
+#'Money' = Q119a_8 Higher than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_8))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_8))
+
+#'Other' = Q119a_9, Much higher than others
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q119a_9))
+rprop(table(VV_3$AgeGroup2,VV_3$Q119a_9))
+
+
+```
+ Reception of Phase 1
+```{r Q116}
+VV_3 %>% select(AgeGroup2,Q116_1) %>% group_by(AgeGroup2,Q116_1)%>%
+           summarise(M = median(Q116_1))
+#The different phases of the plan
+summary(lm(Q116_1 ~ AgeGroup2,data=VV_3))
+
+#When I can return to work
+summary(lm(Q116_2 ~ AgeGroup2,data=VV_3))
+
+#Which activities are allowed in Phase one
+summary(lm(Q116_3 ~ AgeGroup2,data=VV_3))
+
+#When businesses/services I need will reopen
+summary(lm(Q116_4 ~ AgeGroup2,data=VV_3))
+
+```
+
+## Q105 - use of app
+
+```{r Q105}
+
+table(VV_3$AgeGroup2,VV_3$Q105)
+
+rprop(table(VV_3$AgeGroup2,VV_3$Q105)) # not much difference
+chisq.test(table(VV_3$AgeGroup2,VV_3$Q105)) #ns
+```
+
+
